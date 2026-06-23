@@ -8,6 +8,8 @@ Usage:
   python scripts/skill-create.py --name my-folder --role Creator --depth medium
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import subprocess

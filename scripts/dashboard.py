@@ -8,6 +8,8 @@ Usage:
   Then open http://localhost:8080
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import subprocess

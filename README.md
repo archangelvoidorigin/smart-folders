@@ -2,6 +2,7 @@
 
 **Universal AI agent workspace organization. One system, every agent.**
 
+[![Validate Examples](https://github.com/ArchangelVoidOrigin/smart-folders/actions/workflows/validate.yml/badge.svg)](https://github.com/ArchangelVoidOrigin/smart-folders/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![No Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)]()
@@ -52,6 +53,41 @@ Every agent reads its own format. Rename `smart-folder.md` to what your agent re
 | Aider | `AIDER.md` |
 
 Or use `convert.py` to generate all formats from one source file.
+
+---
+
+## See It
+
+`python scripts/map.py examples/ --stats --connections` renders the whole tree —
+roles, token budgets, and how folders feed each other (colored in a real terminal):
+
+```
+SMART FOLDER MAP
+============================================================
+Root: examples
+Folders: 3
+
+Role distribution:
+  Architect: 1
+  Creator: 1
+  Knowledge Keeper: 1
+
+Tree:
+  └── api-service [Architect]
+      -> web-app/
+  └── knowledge-base [Knowledge Keeper]
+      -> ../web-app/, ../api-service/
+  └── web-app [Creator]
+      -> deploy/
+
+STATISTICS
+============================================================
+Total folders : 3      Total tokens : 32,000
+Max depth     : 1      Avg tokens   : 10,666
+```
+
+The same data is available in the browser via `dashboard.py` — folder health,
+role distribution, and live validate/audit/map, with zero dependencies.
 
 ---
 

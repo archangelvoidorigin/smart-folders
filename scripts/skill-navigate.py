@@ -8,6 +8,8 @@ Usage:
   python scripts/skill-navigate.py --task "build a button" --agent claude --location .
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path

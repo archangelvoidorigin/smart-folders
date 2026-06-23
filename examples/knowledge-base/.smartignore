@@ -1,0 +1,24 @@
+# Cognitive boundary for the Knowledge Base.
+# Agents working here must not see, load, or reason about these.
+
+# Code — this is a research library, not a Creator folder
+*.py
+*.js
+*.ts
+*.tsx
+*.jsx
+
+# Build / dependency noise
+node_modules/
+dist/
+build/
+.cache/
+
+# Secrets — never in scope
+secrets/
+credentials/
+*.env
+*.key
+
+# VCS internals
+.git/

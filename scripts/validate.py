@@ -9,19 +9,46 @@ Usage:
   python scripts/validate.py [folder_path] --recursive
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
 
 SCHEMA_PATH = Path(__file__).parent.parent / "settings-schema.json"
 
-VALID_ROLES = {
+# Defaults used only if settings-schema.json is missing or unreadable.
+_FALLBACK_ROLES = {
     "Knowledge Keeper", "Creator", "Architect", "Connector",
-    "Chronicler", "Enabler", "Archive", "Staging", "Custom"
+    "Chronicler", "Enabler", "Archive", "Staging", "Custom",
 }
+_FALLBACK_BOUNDS = {"token_budget": (1000, 50000), "file_limit": (10, 10000)}
+
+
+def _load_schema_rules() -> tuple[set, dict]:
+    """Derive valid roles and numeric bounds from settings-schema.json so the
+    schema is the single source of truth. Falls back to hardcoded defaults."""
+    try:
+        schema = json.loads(SCHEMA_PATH.read_text())
+        props = schema["properties"]
+        roles = set(props["folder"]["properties"]["role"]["enum"])
+        bprops = props["boundaries"]["properties"]
+        bounds = {
+            key: (bprops[key]["minimum"], bprops[key]["maximum"])
+            for key in ("token_budget", "file_limit")
+        }
+        return roles, bounds
+    except (OSError, KeyError, json.JSONDecodeError):
+        return _FALLBACK_ROLES, dict(_FALLBACK_BOUNDS)
+
+
+VALID_ROLES, BOUNDS = _load_schema_rules()
 
 ADAPTER_FILES = {"AGENTS.md", "CLAUDE.md", "GEMINI.md", "CURSOR.md", "KILO.md", "AIDER.md"}
 REQUIRED_SMART_SECTIONS = {"Purpose", "Role", "Scope", "Boundaries", "Instructions"}
+
+# Reserved sub-directories that are part of a folder, not child smart folders.
+RESERVED_DIRS = {"laws", "chronicles", "adapters"}
 
 
 def validate_folder(folder_path: Path) -> tuple[list, list]:
@@ -75,12 +102,14 @@ def validate_folder(folder_path: Path) -> tuple[list, list]:
                     warnings.append("settings.json boundaries missing 'can_see'")
                 if "cannot_see" not in boundaries:
                     warnings.append("settings.json boundaries missing 'cannot_see'")
+                bmin, bmax = BOUNDS["token_budget"]
                 budget = boundaries.get("token_budget", 8000)
-                if not (1000 <= budget <= 50000):
-                    errors.append(f"settings.json token_budget out of range [1000–50000]: {budget}")
+                if not (bmin <= budget <= bmax):
+                    errors.append(f"settings.json token_budget out of range [{bmin}–{bmax}]: {budget}")
+                lmin, lmax = BOUNDS["file_limit"]
                 limit = boundaries.get("file_limit", 500)
-                if not (10 <= limit <= 10000):
-                    errors.append(f"settings.json file_limit out of range [10–10000]: {limit}")
+                if not (lmin <= limit <= lmax):
+                    errors.append(f"settings.json file_limit out of range [{lmin}–{lmax}]: {limit}")
 
     # .smartignore
     if not (folder_path / ".smartignore").exists():
@@ -97,7 +126,7 @@ def validate_folder(folder_path: Path) -> tuple[list, list]:
 
     # Child folders — check for missing smart-folder.md and parent references
     for child in folder_path.iterdir():
-        if child.is_dir() and not child.name.startswith("."):
+        if child.is_dir() and not child.name.startswith(".") and child.name not in RESERVED_DIRS:
             child_smart = child / "smart-folder.md"
             if not child_smart.exists():
                 warnings.append(f"Child folder '{child.name}' has no smart-folder.md")
@@ -146,7 +175,7 @@ def main():
         folders = [p.parent for p in root.rglob("smart-folder.md")]
         if not folders:
             print(f"No smart folders found under {root}")
-            sys.exit(0)
+            sys.exit(1)
         folders.sort()
     else:
         folders = [root]

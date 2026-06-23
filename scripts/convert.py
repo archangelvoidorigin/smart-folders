@@ -7,6 +7,8 @@ Usage:
   python scripts/convert.py [folder_path] [--agent all|claude|gemini|cursor|kilo|aider|agents]
 """
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 

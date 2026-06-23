@@ -7,6 +7,8 @@ Usage:
   python scripts/audit.py [folder_path] [--output report.json]
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 from pathlib import Path
