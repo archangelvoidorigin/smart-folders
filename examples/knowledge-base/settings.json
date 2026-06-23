@@ -1,0 +1,37 @@
+{
+  "folder": {
+    "name": "knowledge-base",
+    "role": "Knowledge Keeper",
+    "sub_role": "AI Research Library",
+    "level": 1,
+    "depth": "deep",
+    "purpose": "Store, organize, and surface research on AI agent systems, tools, and patterns"
+  },
+  "boundaries": {
+    "can_see": ["*.md", "*.txt", "*.json"],
+    "cannot_see": ["*.py", "*.js", "*.ts", "node_modules/", ".git/", "secrets/", "*.log"],
+    "token_budget": 12000,
+    "file_limit": 200,
+    "depth_limit": 4
+  },
+  "connections": {
+    "parent": "../",
+    "children": ["ai-agents/", "tools/", "patterns/", "research/"],
+    "siblings": [],
+    "tools": ["search", "summarize", "compare", "cross-reference"],
+    "feeds_into": ["../web-app/", "../api-service/"],
+    "receives_from": []
+  },
+  "agents": {
+    "allowed": ["claude", "gemini"],
+    "preferred": "gemini",
+    "restricted": []
+  },
+  "metadata": {
+    "created": "2026-06-23",
+    "author": "ArchangelVoidOrigin",
+    "last_modified": "2026-06-23",
+    "quality_score": 9.0,
+    "version": 1
+  }
+}

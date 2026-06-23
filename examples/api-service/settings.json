@@ -1,0 +1,37 @@
+{
+  "folder": {
+    "name": "api-service",
+    "role": "Architect",
+    "sub_role": "REST API",
+    "level": 1,
+    "depth": "medium",
+    "purpose": "Build and maintain the REST API — routes, models, services, types, and tests"
+  },
+  "boundaries": {
+    "can_see": ["*.ts", "*.js", "*.json", "*.sql", "*.md", "*.yaml"],
+    "cannot_see": ["node_modules/", "dist/", ".env", ".env.*", "*.log", "secrets/"],
+    "token_budget": 10000,
+    "file_limit": 250,
+    "depth_limit": 4
+  },
+  "connections": {
+    "parent": "../",
+    "children": ["src/routes/", "src/services/", "src/models/", "src/types/"],
+    "siblings": ["web-app/"],
+    "tools": ["generate", "test", "document", "migrate"],
+    "feeds_into": ["web-app/"],
+    "receives_from": ["knowledge-base/"]
+  },
+  "agents": {
+    "allowed": ["claude", "aider", "codex"],
+    "preferred": "aider",
+    "restricted": []
+  },
+  "metadata": {
+    "created": "2026-06-23",
+    "author": "ArchangelVoidOrigin",
+    "last_modified": "2026-06-23",
+    "quality_score": 9.0,
+    "version": 1
+  }
+}

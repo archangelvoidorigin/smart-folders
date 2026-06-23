@@ -1,0 +1,5 @@
+# smart-folders has no required dependencies — all scripts use Python standard library only.
+# Python 3.8+ required.
+#
+# Optional: jsonschema for strict JSON Schema validation in validate.py
+# pip install jsonschema

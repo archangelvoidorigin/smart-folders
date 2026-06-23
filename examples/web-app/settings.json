@@ -1,0 +1,37 @@
+{
+  "folder": {
+    "name": "web-app",
+    "role": "Creator",
+    "sub_role": "React Frontend",
+    "level": 1,
+    "depth": "medium",
+    "purpose": "Build and maintain the React frontend — components, pages, styles, and client-side logic"
+  },
+  "boundaries": {
+    "can_see": ["*.tsx", "*.ts", "*.jsx", "*.js", "*.css", "*.json", "*.md"],
+    "cannot_see": ["node_modules/", "dist/", "build/", ".cache/", "*.log", ".env", ".env.*"],
+    "token_budget": 10000,
+    "file_limit": 300,
+    "depth_limit": 5
+  },
+  "connections": {
+    "parent": "../",
+    "children": ["src/components/", "src/pages/", "src/hooks/"],
+    "siblings": ["api-service/"],
+    "tools": ["generate", "refactor", "test", "lint"],
+    "feeds_into": ["deploy/"],
+    "receives_from": ["knowledge-base/", "api-service/"]
+  },
+  "agents": {
+    "allowed": ["claude", "cursor", "kilo"],
+    "preferred": "cursor",
+    "restricted": []
+  },
+  "metadata": {
+    "created": "2026-06-23",
+    "author": "ArchangelVoidOrigin",
+    "last_modified": "2026-06-23",
+    "quality_score": 9.0,
+    "version": 1
+  }
+}
