@@ -1024,7 +1024,17 @@ def main():
         print(f"Error: folder not found: {root}")
         return 1
 
-    server = HTTPServer((args.host, args.port), Handler)
+    try:
+        server = HTTPServer((args.host, args.port), Handler)
+    except OSError as e:
+        if e.errno == 98:
+            print(f"Port {args.port} is already in use.")
+            print(f"  Another dashboard may be running.")
+            print(f"  Use: python scripts/dashboard.py --port {args.port + 1}")
+            print(f"  Or:  kill $(lsof -ti:{args.port}) && python scripts/dashboard.py {args.folder}")
+        else:
+            print(f"Socket error: {e}")
+        return 1
     server.root = root
 
     print(f"Smart Folder Dashboard")
