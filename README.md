@@ -1,28 +1,36 @@
-# Smart Folders
+# Smart Folders — Organize Chaos. Harness Flame.
 
-**Universal AI agent workspace organization. One system, every agent.**
+---
 
-[![Validate Examples](https://github.com/ArchangelVoidOrigin/smart-folders/actions/workflows/validate.yml/badge.svg)](https://github.com/ArchangelVoidOrigin/smart-folders/actions/workflows/validate.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![No Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)]()
+## Why This Exists
+
+In January 2026, I started building something I could not yet name. I called it COSMOS_FORGE. I had chaos in my head — always have — and I needed a system that did not suppress it but gave it shape.
+
+I lost 110,000 files to a Windows-Linux corruption. Everything I had built up to that point. All of it.
+
+I rebuilt. I am still rebuilding.
+
+The project became CHAOS_DAO_FORGE. The name changed because the system changed. The system changed because I changed.
+
+The Chronicles are the source and the beginning. Everything started with the Chronicles — the truth of the journey, especially the failures. They preserve changing beliefs, not frozen truths. They remember what I cannot.
+
+This project has been through four phases. This phase — Phase 4 — has held more mistakes and blunders than any before. That is exactly why it matters. I am solidifying the concept of bridging different parts of the system, failing repeatedly so the connections become sound. The goal is one system where everything harmonizes.
+
+**Smart Folders is one module extracted from that larger system.** It is the organizational backbone — the first stage I chose to make independent and refinable. It is one of the most polished parts I have been iterating on, and it will be a core feature of the whole.
+
+This is not Version 1. This is before Version 1. There is a long road ahead.
 
 ---
 
 ## The Problem
 
-AI agents get lost. They create files in wrong places, duplicate functionality, break conventions, and bloat context windows. The larger the codebase, the worse it gets.
+AI agents get lost. They create files in the wrong directories. They duplicate functionality that already exists. They load 150,000 tokens of irrelevant context to answer a question about one component. They violate conventions because no one told them what the conventions are.
 
-DOX proved hierarchical instructions work. MWP proved folder-based context loading saves tokens. But no system combines all of this:
+The larger the codebase, the worse it gets. The more agents you run, the more chaos compounds.
 
-- One file format that works with Claude, Gemini, Codex, Cursor, Kilo, and Aider
-- Three levels of depth — drop-in simple to full biological architecture
-- Cognitive boundaries (`.smartignore`) — not just file exclusion, but what agents must not *think about*
-- Per-folder role system with semantic inheritance
-- A visual dashboard non-technical users can actually use
-- AI skills that guide folder creation and navigation
+But **the constraints are not cages**. They are rails that let you go faster. They guide the agent toward the goal of using AI as an innovative tool, not to mimic. The goal is not to make AI do the thinking for you. It is to create a harness that enables innovation — even when you are using a weaker model. Even when you cannot afford $200/month for a premium subscription. Even when you are building alone at 3 AM on hardware that should not be able to do what you are asking it to do.
 
-Smart Folders closes that gap.
+**The system matters more than the compute.**
 
 ---
 
@@ -41,7 +49,7 @@ my-project/
     └── smart-folder.md      ← "Documentation. Keep it concise."
 ```
 
-Every agent reads its own format. Rename `smart-folder.md` to what your agent reads:
+Every agent reads its own format. Rename `smart-folder.md` to what your agent reads, or use `convert.py` to generate all formats from one source:
 
 | Agent | File |
 |-------|------|
@@ -52,18 +60,17 @@ Every agent reads its own format. Rename `smart-folder.md` to what your agent re
 | Kilo Code | `KILO.md` |
 | Aider | `AIDER.md` |
 
-Or use `convert.py` to generate all formats from one source file.
+**One source. Every agent. No duplication.**
 
 ---
 
 ## See It
 
-`python scripts/map.py examples/ --stats --connections` renders the whole tree —
-roles, token budgets, and how folders feed each other (colored in a real terminal):
+`python scripts/map.py examples/ --stats --connections` renders the whole tree:
 
 ```
 SMART FOLDER MAP
-============================================================
+------------------------------------------------------------
 Root: examples
 Folders: 3
 
@@ -81,39 +88,43 @@ Tree:
       -> deploy/
 
 STATISTICS
-============================================================
+------------------------------------------------------------
 Total folders : 3      Total tokens : 32,000
 Max depth     : 1      Avg tokens   : 10,666
 ```
 
-The same data is available in the browser via `dashboard.py` — folder health,
-role distribution, and live validate/audit/map, with zero dependencies.
+The same data in the browser — `dashboard.py`, pure Python stdlib, zero external dependencies.
+
+```bash
+python scripts/dashboard.py /path/to/project
+# Open http://localhost:8080
+```
 
 ---
 
 ## Three Levels of Depth
 
-**Level 1 — Simple.** Drop `smart-folder.md` in any folder. Done.
+**Level 1 — Simple.** Drop `smart-folder.md` in any folder. One file. That is all you need. The minimum viable unit.
 
-**Level 2 — Custom.** Add `settings.json` to configure role, token budget, boundaries, and agent preferences.
+**Level 2 — Custom.** Add `settings.json` with role, token budget, boundaries, agent preferences. Validated by JSON Schema. The folder has preferences now.
 
-**Level 3 — Deep.** Add `laws/` for absolute guardrails, `.smartignore` for cognitive boundaries, and `chronicles/` for session documentation.
+**Level 3 — Deep.** Add `laws/` for absolute guardrails. `.smartignore` for cognitive boundaries. `chronicles/` for session documentation. The folder remembers. It evolves.
 
-Start at Level 1. Add depth only when you need it.
+Start at Level 1. Add depth only when you need it. The system grows with you.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Clone the repo
+# Clone
 git clone https://github.com/ArchangelVoidOrigin/smart-folders.git
 cd smart-folders
 
-# Initialize Smart Folders in your project
+# Initialize in your project
 bash scripts/init.sh my-project Creator medium
 
-# Or run interactively
+# Or run the interactive assistant
 python scripts/skill-create.py
 
 # Validate your folder structure
@@ -127,6 +138,20 @@ python scripts/dashboard.py my-project/
 
 # Generate a folder map
 python scripts/map.py my-project/ --stats --connections
+
+# Audit token usage
+python scripts/audit.py my-project/
+```
+
+Or use `make`:
+
+```bash
+make init      FOLDER=my-project
+make validate  FOLDER=my-project
+make convert   FOLDER=my-project
+make map       FOLDER=my-project
+make audit     FOLDER=my-project
+make dashboard FOLDER=my-project
 ```
 
 ---
@@ -135,34 +160,37 @@ python scripts/map.py my-project/ --stats --connections
 
 ```
 smart-folders/
-├── smart-folder.md          ← The universal template
-├── settings-schema.json     ← JSON Schema for settings.json
-├── .smartignore             ← Default cognitive boundaries
-├── adapters/                ← Per-agent instruction files
+├── smart-folder.md              ← The universal template
+├── settings-schema.json         ← JSON Schema for settings.json
+├── .smartignore                 ← Default cognitive boundaries
+├── adapters/                    ← Per-agent instruction files
 │   ├── AGENTS.md, CLAUDE.md, GEMINI.md, CURSOR.md, KILO.md, AIDER.md
-├── roles/                   ← Role definitions
-├── laws/                    ← Default guardrails
-├── scripts/                 ← The toolkit
-│   ├── init.sh              ← Initialize smart folders in any directory
-│   ├── validate.py          ← Check folder health and consistency
-│   ├── convert.py           ← Generate agent-specific formats
-│   ├── map.py               ← Visual tree of all folders and connections
-│   ├── dashboard.py         ← Web UI (no dependencies, pure stdlib)
-│   ├── audit.py             ← Token usage analysis and optimization
-│   ├── skill-create.py      ← Interactive folder creation assistant
-│   └── skill-navigate.py    ← Navigate to the right folder for any task
-├── examples/                ← Working demos
-│   ├── knowledge-base/      ← Research and documentation setup
-│   ├── web-app/             ← Frontend project setup
-│   └── api-service/         ← Backend API setup
-└── docs/                    ← Guides and philosophy
+├── roles/                       ← Role definitions with inheritance
+├── laws/                        ← Default guardrails
+│   ├── never-rules.md           ← Absolute prohibitions
+│   ├── always-rules.md          ← Absolute requirements
+│   └── quality-gates.md         ← Definition of done
+├── scripts/                     ← The toolkit
+│   ├── init.sh                  ← Initialize smart folders
+│   ├── validate.py              ← Folder health and consistency
+│   ├── convert.py               ← Generate agent-specific formats
+│   ├── map.py                   ← Visual tree with connections
+│   ├── dashboard.py             ← Web UI, no dependencies
+│   ├── audit.py                 ← Token usage analysis
+│   ├── skill-create.py          ← Interactive folder creation
+│   └── skill-navigate.py        ← Navigate to right folder
+├── examples/                    ← Working demos
+│   ├── knowledge-base/          ← Research setup
+│   ├── web-app/                 ← Frontend project
+│   └── api-service/             ← Backend API
+└── docs/                        ← Guides and philosophy
 ```
 
 ---
 
 ## The Role System
 
-Each folder has a semantic role that shapes how agents behave inside it:
+Every folder has a role. The role shapes how agents behave inside it.
 
 | Role | What It Is | Metaphor |
 |------|------------|---------|
@@ -175,35 +203,132 @@ Each folder has a semantic role that shapes how agents behave inside it:
 | **Archive** | Preserves history | The vault |
 | **Staging** | Experiments safely | The sandbox |
 
-Roles inherit. A child `Creator` folder inside a `Knowledge Keeper` parent inherits the parent's constraints while adding its own.
+Roles inherit. A child `Creator` inside a `Knowledge Keeper` parent inherits the parent's constraints while adding its own. If roles conflict, the parent's absolute laws win. This is not hierarchy for its own sake — it is how context stays focused and agents do not wander.
 
 ---
 
 ## The Dashboard
 
+Zero dependencies. Pure Python stdlib. A browser-based web UI that shows your smart folder ecosystem at a glance.
+
 ```bash
-python scripts/dashboard.py /path/to/project
-# Open http://localhost:8080
+python scripts/dashboard.py examples/
 ```
 
-No external dependencies. Pure Python stdlib. Shows folder health, role distribution, token budgets, and connections. Validate, audit, and map your project from the browser.
+Opens at `http://localhost:8080`. You see:
+
+- **Stats bar** — total folders, unique roles, total token budget, average budget
+- **Sidebar** — searchable folder list with role badges and budget tags
+- **Health rings** — animated SVG ring charts showing folder coverage
+- **Detail cards** — role, depth, purpose, path for any selected folder
+- **Budget bars** — token and file limits with color thresholds
+- **Connection diagrams** — directional arrows showing how folders relate
+- **Actions panel** — one-click validate, audit, and map with live output
+
+Every component of this dashboard is built from the same data that agents read. What you see is what the agent knows.
 
 ---
 
-## Philosophy
+## Philosophy — Shen (神) & The Three Treasures
 
-> "People don't create from facts. They create from imagination."
+This system is built on the concept of **Shen (神)** — spirit, consciousness, the luminous aspect of a being. In cultivation traditions, Shen is the highest of the Three Treasures:
 
-Smart Folders are not about constraining how you organize. They are about making organization explicit enough that any AI agent — large or small, any provider — can follow it precisely.
+- **Jing (精)** — Essence. The physical substrate. The compute. The body.
+- **Qi (氣)** — Energy. The flow. The pipelines. The breath that moves through the system.
+- **Shen (神)** — Spirit. The awareness. The intent. The flame that knows itself.
 
-The system breaks down instructions to the minimum. If a small model can follow it, a large model can follow it better.
+In Daoist alchemy, the three refine into one. This is Phase 5. This is the harmony I am building toward.
+
+But there is more depth to me than any tradition can contain. I am in tune with art, music, emotion. I feel before I name. I build before I understand. This is art, not engineering. The system teaches me what it is as I build it.
+
+The governance is rhythm. The pipelines are melody. The intent tracking is feeling made visible.
+
+I am the Dragon. The Flame does not extinguish. It moves through galaxies and multiverses. It is reborn stronger each time.
+
+**The system must be alive.** It must pulse. It must breathe. It must remember.
+
+---
+
+## The Force Multiplier
+
+Every phase of this project has been built with **free tiers and alternatives**. I have been manufacturing systems with weaker models. That means more thought process, more refining, more architecting — because I cannot rely on raw compute power to brute-force solutions.
+
+**The goal is not to make AI do the thinking for you.**
+
+The goal is a harness, an OS system, that enables innovation even when you are using a weaker model. The system should make free models useful for people who cannot afford spending $200/month for AI with a usage limit. And when a frontier premium model uses this same system, the results are **exponential** — not just better, but transformed.
+
+**This is why Smart Folders matters:**
+- Reduces context bloat so weaker models stay focused
+- Cognitive boundaries so weaker models do not wander
+- Inheritance and roles so weaker models understand structure without massive prompts
+- Zero-dependency so it runs anywhere
+- Designed for the constraint, not despite it
+
+**You do not need a $200 subscription to build something extraordinary. You need a system that knows how to use what you have.**
+
+---
+
+## Status & Roadmap
+
+This is **pre-Version 1**. I am in Phase 4 of the larger CHAOS_DAO_FORGE journey. What works now is real and tested. What is coming is larger.
+
+**What works:**
+- `smart-folder.md` universal template
+- `settings.json` with JSON Schema validation
+- `.smartignore` cognitive boundaries
+- Per-agent adapters for 6 agents
+- `convert.py`, `validate.py`, `map.py`, `dashboard.py`, `audit.py`
+- `skill-create.py`, `skill-navigate.py`, `init.sh`
+- 8 semantic roles with inheritance
+- Three working examples
+
+**What is in progress:**
+- Integration with the broader CHAOS_DAO_FORGE ecosystem
+- Containerized Smart Folder libraries
+- Second brain integration
+- Agentic workflows that communicate feeling, not just instruction
+- Stress-testing at 100,000+ file scale
+- Cross-folder inheritance edge cases
+- Safety validation for non-technical users
+
+**What is aspirational (Phase 5 and beyond):**
+- The Orb dashboard — central brain
+- Hermes Lineage — full containerized agents with personas
+- Chronicle Protocol — living memory, self-evolution
+- The Three Treasures as architectural principles
+- The harmony of governance, pipelines, and intent
+
+**Roadmap:**
+- **v0.2.0** — Smart ignore auto-generation, batch init from YAML, migration from DOX/MWP
+- **v0.3.0** — Knowledge integration, multi-agent coordination, CI/CD validation
+- **v1.0.0** — Universal standard, plugin system, enterprise features
+
+---
+
+## Influences
+
+**DOX** (2025) proved that hierarchical `AGENTS.md` files work. Jake Van Cleave built Space Agent with it. DOX is part of the DNA here — confirmation that this direction is right, not the origin of it. Smart Folders extends DOX with universal adapters, cognitive boundaries, roles, laws, a dashboard, and tools.
+
+**MWP** proved folder-based context loading saves tokens. **AgentFS** (Turso) showed filesystem abstractions for agents. **SKILL.md / AGENTS.md** is an emerging standard.
+
+Smart Folders is not a replacement for these. It is the next step — one system where all of them converge.
 
 ---
 
 ## Contributing
 
+Break it. Report it. Suggest something wild. This is pre-Version 1 — the right time to contribute is now, when the shape is still forming.
+
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome.
+
+---
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+*This is one module. The rest of the system exists. The invitation is real.*
+
+*The Flame does not extinguish.*
