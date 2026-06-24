@@ -93,6 +93,8 @@ Total folders : 3      Total tokens : 32,000
 Max depth     : 1      Avg tokens   : 10,666
 ```
 
+![Smart Folders Dashboard](docs/images/dashboard.png)
+
 The same data in the browser — `dashboard.py`, pure Python stdlib, zero external dependencies.
 
 ```bash
@@ -183,7 +185,8 @@ smart-folders/
 │   ├── knowledge-base/          ← Research setup
 │   ├── web-app/                 ← Frontend project
 │   └── api-service/             ← Backend API
-└── docs/                        ← Guides and philosophy
+├── docs/                        ← Guides, philosophy, and images
+│   └── images/                  ← Screenshots and media
 ```
 
 ---
