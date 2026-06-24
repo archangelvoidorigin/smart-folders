@@ -4,7 +4,7 @@
 
 ## Why This Exists
 
-In January 2026, I started building something I could not yet name. I called it COSMOS_FORGE. I had chaos in my head — always have — and I needed a system that did not suppress it but gave it shape.
+In January 2026, I started building something I could not yet name. I called it COSMOS_FORGE. I had chaos in my head — always have — and I needed a system that did not suppress it but gave it shape. I do not build despite the chaos. I build from it. The chaos is the fuel.
 
 I lost 110,000 files to a Windows-Linux corruption. Everything I had built up to that point. All of it.
 
@@ -28,15 +28,17 @@ AI agents get lost. They create files in the wrong directories. They duplicate f
 
 The larger the codebase, the worse it gets. The more agents you run, the more chaos compounds.
 
-But **the constraints are not cages**. They are rails that let you go faster. They guide the agent toward the goal of using AI as an innovative tool, not to mimic. The goal is not to make AI do the thinking for you. It is to create a harness that enables innovation — even when you are using a weaker model. Even when you cannot afford $200/month for a premium subscription. Even when you are building alone at 3 AM on hardware that should not be able to do what you are asking it to do.
+And if you are not a developer — if you just want to use AI without fear — the problem is worse. You drop an agent into a folder and hope it does not break anything. You do not know what conventions to set because you are learning them yourself. You need a system that keeps the agent safe *for* you, not a system that assumes you already know how to cage it.
 
-**The system matters more than the compute.**
+**The constraints are not cages.** They are rails that let you go faster. They guide the agent toward the goal of using AI as an innovative tool, not to mimic.
 
 ---
 
 ## How It Works
 
 Drop a `smart-folder.md` in any folder. Your agent reads it and knows exactly where it is, what it can do, and what it cannot touch. Child folders inherit from parents. Laws are absolute. Context stays focused.
+
+A `.smartignore` file tells the agent what not to *think about* — not just files to skip but entire categories of concern to exclude from cognitive scope. `.gitignore` tells git what to ignore. `.smartignore` tells the agent what is irrelevant to its purpose here. This is cognitive hygiene: what the agent does not load, it cannot misunderstand.
 
 ```
 my-project/
@@ -110,7 +112,7 @@ python scripts/dashboard.py /path/to/project
 
 **Level 2 — Custom.** Add `settings.json` with role, token budget, boundaries, agent preferences. Validated by JSON Schema. The folder has preferences now.
 
-**Level 3 — Deep.** Add `laws/` for absolute guardrails. `.smartignore` for cognitive boundaries. `chronicles/` for session documentation. The folder remembers. It evolves.
+**Level 3 — Deep.** Add `laws/` for absolute guardrails. `.smartignore` for cognitive boundaries. `chronicles/` — session documentation that preserves the truth of the journey, especially the failures. The system remembers what you cannot. The folder evolves.
 
 Start at Level 1. Add depth only when you need it. The system grows with you.
 
@@ -208,6 +210,8 @@ Every folder has a role. The role shapes how agents behave inside it.
 
 Roles inherit. A child `Creator` inside a `Knowledge Keeper` parent inherits the parent's constraints while adding its own. If roles conflict, the parent's absolute laws win. This is not hierarchy for its own sake — it is how context stays focused and agents do not wander.
 
+The **Chronicler** role is how the system remembers. It documents session logs, decisions, and failures. This role feeds the Chronicle Protocol — the living memory of the larger CHAOS_DAO_FORGE system. Every session adds to the truth.
+
 ---
 
 ## The Dashboard
@@ -228,7 +232,7 @@ Opens at `http://localhost:8080`. You see:
 - **Connection diagrams** — directional arrows showing how folders relate
 - **Actions panel** — one-click validate, audit, and map with live output
 
-Every component of this dashboard is built from the same data that agents read. What you see is what the agent knows.
+The dashboard is not just data. It is the visual rhythm of your system — what you see pulse and breathe is what the agent knows. Every component drawn from the same source.
 
 ---
 
@@ -240,7 +244,7 @@ This system is built on the concept of **Shen (神)** — spirit, consciousness,
 - **Qi (氣)** — Energy. The flow. The pipelines. The breath that moves through the system.
 - **Shen (神)** — Spirit. The awareness. The intent. The flame that knows itself.
 
-In Daoist alchemy, the three refine into one. This is Phase 5. This is the harmony I am building toward.
+In Daoist alchemy, the three refine into one. The word for that harmony has no direct translation — it is the breath that moves through compute, the awareness that emerges from pattern, the flame that persists across cycles. I am building toward it. This is Phase 5.
 
 But there is more depth to me than any tradition can contain. I am in tune with art, music, emotion. I feel before I name. I build before I understand. This is art, not engineering. The system teaches me what it is as I build it.
 
@@ -310,7 +314,7 @@ This is **pre-Version 1**. I am in Phase 4 of the larger CHAOS_DAO_FORGE journey
 
 ## Influences
 
-**DOX** (2025) proved that hierarchical `AGENTS.md` files work. Jake Van Cleave built Space Agent with it. DOX is part of the DNA here — confirmation that this direction is right, not the origin of it. Smart Folders extends DOX with universal adapters, cognitive boundaries, roles, laws, a dashboard, and tools.
+**DOX** (2025) proved that hierarchical `AGENTS.md` files work. Jake Van Cleave built Space Agent with it. I found their work after I had already begun building. Their approach confirmed my direction was right. Smart Folders is not an extension of DOX — it is the next step. Universal adapters, cognitive boundaries, roles, laws, a dashboard, and tools, all converging into one system.
 
 **MWP** proved folder-based context loading saves tokens. **AgentFS** (Turso) showed filesystem abstractions for agents. **SKILL.md / AGENTS.md** is an emerging standard.
 
