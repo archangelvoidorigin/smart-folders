@@ -467,6 +467,77 @@ a.skip-link:focus { top:0; }
     transition-duration:0ms !important;
   }
 }
+
+.editor-wrap { margin-top:12px; }
+.editor-tabs { display:flex; gap:4px; margin-bottom:8px; }
+.editor-tab {
+  padding:5px 14px; font-size:11px; font-weight:600;
+  border:1px solid var(--border); border-radius:var(--radius-xs);
+  background:var(--bg); color:var(--text3); cursor:pointer;
+  transition:all var(--dur-f) var(--ease); font-family:var(--font);
+}
+.editor-tab:hover { border-color:var(--border2); color:var(--text); }
+.editor-tab.active { background:var(--accent-dim); border-color:rgba(34,197,94,.3); color:var(--accent); }
+.editor-content { display:none; }
+.editor-content.visible { display:block; }
+.editor-content textarea {
+  width:100%; min-height:200px; padding:12px;
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--text);
+  font-family:var(--mono); font-size:12px; line-height:1.6;
+  resize:vertical; outline:none; tab-size:2;
+}
+.editor-content textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-dim); }
+.editor-actions { display:flex; gap:8px; margin-top:8px; align-items:center; }
+.editor-actions button {
+  padding:6px 16px; font-size:11px; font-weight:600;
+  border-radius:var(--radius-xs); cursor:pointer;
+  transition:all var(--dur-f) var(--ease); font-family:var(--font);
+  border:1px solid transparent;
+}
+.btn-save {
+  background:var(--accent); color:#000; border-color:var(--accent);
+}
+.btn-save:hover { background:var(--accent2); }
+.btn-save:disabled { opacity:.4; cursor:not-allowed; }
+.btn-discard { background:var(--surface); color:var(--text2); border-color:var(--border); }
+.btn-discard:hover { background:var(--surface2); color:var(--text); }
+.btn-limbo { background:rgba(248,113,113,.12); color:#F87171; border-color:rgba(248,113,113,.2); }
+.btn-limbo:hover { background:rgba(248,113,113,.2); }
+.editor-status { font-size:11px; color:var(--text3); margin-left:auto; }
+.editor-status.ok { color:var(--green); }
+.editor-status.err { color:var(--red); }
+
+.modal-overlay {
+  display:none; position:fixed; inset:0; z-index:100;
+  background:rgba(0,0,0,.7); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:24px; width:440px;
+  max-width:90vw; max-height:80vh; overflow-y:auto;
+  animation:fadeUp var(--dur-m) var(--ease) both;
+}
+.modal h2 { font-size:16px; font-weight:700; margin-bottom:16px; }
+.modal label { display:block; font-size:11px; color:var(--text3); margin-bottom:4px; font-weight:600; }
+.modal input, .modal select, .modal textarea {
+  width:100%; padding:8px 12px; margin-bottom:14px;
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-xs); color:var(--text);
+  font-size:13px; font-family:var(--font); outline:none;
+}
+.modal input:focus, .modal select:focus, .modal textarea:focus {
+  border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-dim);
+}
+.modal textarea { min-height:80px; resize:vertical; font-family:var(--mono); font-size:12px; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+.modal-actions button { padding:8px 20px; border-radius:var(--radius-xs); font-weight:600; font-size:12px; cursor:pointer; transition:all var(--dur-f) var(--ease); font-family:var(--font); }
+.modal-actions .btn-primary { background:var(--accent); color:#000; border:none; }
+.modal-actions .btn-primary:hover { background:var(--accent2); }
+.modal-actions .btn-secondary { background:var(--surface2); color:var(--text2); border:1px solid var(--border); }
+.modal-actions .btn-secondary:hover { background:var(--surface3); color:var(--text); }
 </style>
 </head>
 <body>
@@ -589,6 +660,25 @@ a.skip-link:focus { top:0; }
       <div class="conn-grid" id="connections"></div>
     </div>
 
+    <div class="panel" id="editor-panel" style="display:none">
+      <div class="panel-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+        </svg>
+        <h2>Editor</h2>
+      </div>
+      <div class="editor-wrap" id="editor-wrap">
+        <div class="editor-tabs" id="editor-tabs"></div>
+        <div id="editor-files"></div>
+        <div class="editor-actions">
+          <button class="btn-save" id="btn-editor-save" disabled onclick="saveEditor()">Save</button>
+          <button class="btn-discard" onclick="discardEdits()">Discard</button>
+          <button class="btn-limbo" id="btn-move-limbo" onclick="moveToLimbo()">Move to Limbo</button>
+          <span class="editor-status" id="editor-status"></span>
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -625,6 +715,15 @@ a.skip-link:focus { top:0; }
           <span class="action-name">Map</span>
           <span class="action-desc">View folder tree</span>
         </button>
+        <button class="action-btn" onclick="showCreateModal()" id="btn-create" tabindex="0">
+          <div class="action-icon gi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <span class="action-name">Create</span>
+          <span class="action-desc">New smart folder wizard</span>
+        </button>
       </div>
       <div class="output-panel" id="output">
         <button class="close-output" onclick="closeOutput()" aria-label="Close output">&times;</button>
@@ -636,9 +735,37 @@ a.skip-link:focus { top:0; }
 
 <div id="sidebar-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:98;backdrop-filter:blur(2px)" onclick="toggleSidebar()"></div>
 
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <h2>Create Smart Folder</h2>
+    <label for="cf-name">Folder Name</label>
+    <input type="text" id="cf-name" placeholder="e.g., my-agent" autocomplete="off">
+    <label for="cf-role">Role</label>
+    <select id="cf-role">
+      <option value="Custom">Custom</option>
+      <option value="Knowledge Keeper">Knowledge Keeper</option>
+      <option value="Creator">Creator</option>
+      <option value="Architect">Architect</option>
+      <option value="Connector">Connector</option>
+      <option value="Chronicler">Chronicler</option>
+      <option value="Enabler">Enabler</option>
+      <option value="Archive">Archive</option>
+      <option value="Staging">Staging</option>
+    </select>
+    <label for="cf-purpose">Purpose (optional)</label>
+    <textarea id="cf-purpose" placeholder="What is this folder for?"></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeCreateModal()">Cancel</button>
+      <button class="btn-primary" id="btn-cf-submit" onclick="createFolder()">Create Folder</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let data = null;
 let selected = null;
+let csrfToken = null;
+let editorState = {};
 
 const ROLE_ICONS = {
   'Knowledge Keeper': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
@@ -683,8 +810,13 @@ document.addEventListener('keydown', e => {
 
 async function load() {
   try {
-    const res = await fetch('/api/folders');
-    data = await res.json();
+    const [folderRes, csrfRes] = await Promise.all([
+      fetch('/api/folders'),
+      fetch('/api/csrf-token')
+    ]);
+    data = await folderRes.json();
+    const csrfData = await csrfRes.json();
+    csrfToken = csrfData.token;
     render();
   } catch(e) {
     document.getElementById('content-area').innerHTML =
@@ -815,6 +947,8 @@ function selectFolder(i, initial) {
   (c.feeds_into || []).forEach(fd => { connHtml += '<div class="conn-row"><span class="conn-arrow out">→</span><span class="conn-name">' + escHtml(fd) + '</span><span class="conn-type">feeds into</span></div>'; });
   (c.receives_from || []).forEach(rf => { connHtml += '<div class="conn-row"><span class="conn-arrow in">←</span><span class="conn-name">' + escHtml(rf) + '</span><span class="conn-type">receives from</span></div>'; });
   conns.innerHTML = connHtml || '<div class="empty-state">No connections defined</div>';
+
+  loadEditor(i);
 }
 
 async function runScript(action) {
@@ -848,6 +982,255 @@ function closeOutput() {
 
 function setStatAnimated(id, val) { document.getElementById(id).textContent = val.toLocaleString(); }
 function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function editorStatus(msg, type) {
+  const el = document.getElementById('editor-status');
+  el.textContent = msg;
+  el.className = 'editor-status' + (type ? ' ' + type : '');
+}
+function editorBtn(loading) {
+  document.getElementById('btn-editor-save').disabled = loading;
+}
+
+async function loadEditor(folderIdx) {
+  const f = data.folders[folderIdx];
+  const wrap = document.getElementById('editor-wrap');
+  const tabs = document.getElementById('editor-tabs');
+  const files = document.getElementById('editor-files');
+  const limboBtn = document.getElementById('btn-move-limbo');
+  document.getElementById('editor-panel').style.display = '';
+
+  const basePath = f.path;
+  limboBtn.style.display = f.path === '.' ? 'none' : '';
+
+  editorState = {
+    folderIdx: folderIdx,
+    path: basePath,
+    files: {},
+    modified: {},
+  };
+
+  const resourcePaths = ['settings.json', 'smart-folder.md', '.smartignore'];
+  const lawsVisible = f.laws && f.laws.length > 0;
+  if (lawsVisible) resourcePaths.push('__laws__');
+
+  tabs.innerHTML = resourcePaths.map((r, idx) =>
+    '<button class="editor-tab' + (idx === 0 ? ' active' : '') + '" ' +
+    'onclick="switchEditorTab(' + idx + ')" id="etab-' + idx + '">' +
+    (r === '__laws__' ? 'Laws (' + f.laws.length + ')' : r) + '</button>'
+  ).join('');
+
+  try {
+    const [settRes, mdRes, igRes] = await Promise.all([
+      fetchApi('/api/folders/' + basePath + '/settings'),
+      fetchApi('/api/folders/' + basePath + '/smart-folder.md'),
+      fetchApi('/api/folders/' + basePath + '/.smartignore'),
+    ]);
+    editorState.files = {
+      'settings.json': { content: JSON.stringify(settRes, null, 2), meta: settRes },
+      'smart-folder.md': { content: mdRes.content || '', meta: mdRes },
+      '.smartignore': { content: igRes.content || '', meta: igRes },
+    };
+    for (const k in editorState.files) editorState.modified[k] = false;
+
+    if (lawsVisible) {
+      editorState.files['__laws__'] = { content: '', meta: { laws: f.laws }, laws: [] };
+      editorState.modified['__laws__'] = false;
+    }
+  } catch(e) {
+    editorStatus('Error loading files', 'err');
+  }
+
+  switchEditorTab(0);
+}
+
+function switchEditorTab(idx) {
+  document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('etab-' + idx);
+  if (tab) tab.classList.add('active');
+
+  const f = data.folders[editorState.folderIdx];
+  const resourcePaths = ['settings.json', 'smart-folder.md', '.smartignore'];
+  if (f.laws && f.laws.length > 0) resourcePaths.push('__laws__');
+  const key = resourcePaths[idx];
+
+  const filesEl = document.getElementById('editor-files');
+  const content = editorState.files[key];
+  if (!content) {
+    filesEl.innerHTML = '<p style="color:var(--text3);font-size:12px">No content available.</p>';
+    return;
+  }
+
+  let html = '';
+  if (key === '__laws__') {
+    const laws = f.laws;
+    html = '<div id="laws-list">' + laws.map((law, li) =>
+      '<div style="margin-bottom:8px">' +
+      '<label style="font-size:11px;color:var(--text3);display:block;margin-bottom:2px;font-weight:600">' +
+      escHtml(law.path || 'Law ' + (li+1)) + '</label>' +
+      '<textarea id="law-' + li + '" data-law-path="' + escHtml(law.path || '') + '" ' +
+      'oninput="markLawEdited(' + li + ')" rows="8">' +
+      escHtml(law.content || '') + '</textarea></div>'
+    ).join('') + '</div>';
+  } else {
+    const placeholder = key === 'settings.json' ? '{\n  \n}' : key === 'smart-folder.md' ? '# ' + f.name + '\n\nDescribe this folder...' : '# patterns to ignore\n*.log\nnode_modules/';
+    html = '<textarea id="editor-textarea" data-key="' + key + '" ' +
+      (key === 'settings.json' ? 'data-json="1" ' : '') +
+      'oninput="markEdited(\'' + key + '\')">' +
+      escHtml(content.content || '') + '</textarea>';
+  }
+
+  filesEl.innerHTML = html;
+  editorStatus('');
+}
+
+function markEdited(key) {
+  editorState.modified[key] = true;
+  document.getElementById('btn-editor-save').disabled = false;
+  editorStatus('Unsaved changes', '');
+}
+function markLawEdited(idx) {
+  editorState.modified['__laws__'] = true;
+  document.getElementById('btn-editor-save').disabled = false;
+  editorStatus('Unsaved changes', '');
+}
+
+async function saveEditor() {
+  const f = data.folders[editorState.folderIdx];
+  const basePath = editorState.path;
+  const btn = document.getElementById('btn-editor-save');
+  editorBtn(true);
+  editorStatus('Saving...', '');
+
+  const resourcePaths = ['settings.json', 'smart-folder.md', '.smartignore'];
+  if (f.laws && f.laws.length > 0) resourcePaths.push('__laws__');
+
+  let allOk = true;
+  for (let i = 0; i < resourcePaths.length; i++) {
+    const key = resourcePaths[i];
+    if (!editorState.modified[key]) continue;
+
+    if (key === '__laws__') {
+      const laws = f.laws;
+      for (let li = 0; li < laws.length; li++) {
+        const ta = document.getElementById('law-' + li);
+        if (!ta) continue;
+        const content = ta.value;
+        const lawPath = laws[li].path;
+        if (!lawPath) continue;
+        try {
+          const res = await fetch('/api/folders/' + lawPath, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+            body: JSON.stringify({ content: content }),
+          });
+          if (!res.ok) { allOk = false; editorStatus('Error saving ' + lawPath, 'err'); }
+        } catch(e) { allOk = false; editorStatus('Error saving ' + lawPath, 'err'); }
+      }
+      editorState.modified[key] = false;
+      continue;
+    }
+
+    const ta = document.getElementById('editor-textarea');
+    if (!ta) continue;
+
+    let payload;
+    if (key === 'settings.json') {
+      try { payload = JSON.parse(ta.value); } catch(e) {
+        allOk = false; editorStatus('Invalid JSON', 'err'); break;
+      }
+    } else {
+      payload = { content: ta.value };
+    }
+
+    try {
+      const res = await fetch('/api/folders/' + basePath + '/' + key, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify(key === 'settings.json' ? payload : payload),
+      });
+      if (!res.ok) { allOk = false; editorStatus('Error saving ' + key, 'err'); break; }
+      editorState.modified[key] = false;
+    } catch(e) { allOk = false; editorStatus('Error saving ' + key, 'err'); break; }
+  }
+
+  if (allOk) {
+    editorStatus('Saved successfully', 'ok');
+    load();
+  }
+  editorBtn(false);
+}
+
+function discardEdits() {
+  switchEditorTab(document.querySelector('.editor-tab.active') ? Array.from(document.querySelectorAll('.editor-tab')).indexOf(document.querySelector('.editor-tab.active')) : 0);
+  document.getElementById('btn-editor-save').disabled = true;
+  editorStatus('');
+}
+
+async function moveToLimbo() {
+  const f = data.folders[editorState.folderIdx];
+  if (!confirm('Move "' + f.name + '" to 06_LIMBO/? This cannot be undone via UI.')) return;
+
+  try {
+    const res = await fetch('/api/folders/' + editorState.path + '/move-to-limbo', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    const result = await res.json();
+    if (result.ok) {
+      editorStatus('Moved to Limbo', 'ok');
+      load();
+    } else {
+      editorStatus(result.error || 'Move failed', 'err');
+    }
+  } catch(e) {
+    editorStatus('Error: ' + e.message, 'err');
+  }
+}
+
+function showCreateModal() {
+  document.getElementById('create-modal').classList.add('open');
+  document.getElementById('cf-name').value = '';
+  document.getElementById('cf-role').value = 'Custom';
+  document.getElementById('cf-purpose').value = '';
+  document.getElementById('cf-name').focus();
+}
+function closeCreateModal() {
+  document.getElementById('create-modal').classList.remove('open');
+}
+document.getElementById('create-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateModal();
+});
+document.getElementById('cf-name').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') createFolder();
+});
+
+async function createFolder() {
+  const name = document.getElementById('cf-name').value.trim();
+  if (!name) { editorStatus('Folder name required', 'err'); return; }
+  const role = document.getElementById('cf-role').value;
+  const purpose = document.getElementById('cf-purpose').value.trim();
+  document.getElementById('btn-cf-submit').disabled = true;
+
+  try {
+    const res = await fetch('/api/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify({ name, role, purpose }),
+    });
+    const result = await res.json();
+    if (result.ok) {
+      closeCreateModal();
+      editorStatus('Folder created: ' + name, 'ok');
+      load();
+    } else {
+      editorStatus(result.error || 'Create failed', 'err');
+    }
+  } catch(e) {
+    editorStatus('Error: ' + e.message, 'err');
+  }
+  document.getElementById('btn-cf-submit').disabled = false;
+}
 
 load();
 </script>

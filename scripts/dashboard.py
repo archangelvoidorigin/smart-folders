@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import secrets
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -23,35 +24,141 @@ from smartfolders.ops import validate_folder, audit_all, print_audit, build_map,
 
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 CONTROL_OS_DIR = Path(__file__).resolve().parent.parent / "control-os" / "dist"
+CSRF_TOKEN = secrets.token_hex(32)
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
 
-        if path == "/api/folders":
+        if path == "/api/csrf-token":
+            self._respond(200, "application/json", json.dumps({"token": CSRF_TOKEN}).encode())
+        elif path == "/api/folders":
             self._respond(200, "application/json", json.dumps(self._folder_data()).encode())
         elif path == "/api/graph":
             self._respond(200, "application/json", json.dumps(self._graph_data()).encode())
         elif path == "/api/stats":
             self._respond(200, "application/json", json.dumps(self._stats_data()).encode())
         elif path.startswith("/api/folders/"):
-            self._handle_folder_path(path)
+            self._handle_folder_read(path)
         elif path.startswith("/api/"):
             action = path[5:]
             self._respond(200, "application/json", json.dumps(self._run(action)).encode())
         else:
             self._serve_static(path)
 
-    def _handle_folder_path(self, path: str):
+    def do_PUT(self):
+        path = urlparse(self.path).path
+        guard = self._guard()
+        if guard:
+            return
+
+        if not path.startswith("/api/folders/"):
+            self._respond(400, "application/json", json.dumps({"error": "Invalid path"}).encode())
+            return
+
+        folder_path, resource, sub = self._parse_folder_resource(path)
+        if not resource:
+            self._respond(400, "application/json", json.dumps({"error": "No resource specified"}).encode())
+            return
+
+        abs_folder = (self.server.root / folder_path).resolve()
+        if not str(abs_folder).startswith(str(self.server.root.resolve())) or not abs_folder.is_dir():
+            self._respond(404, "application/json", json.dumps({"error": "Folder not found"}).encode())
+            return
+
+        content = self._read_body()
+        if content is None:
+            return
+
+        try:
+            if resource == "settings":
+                json.loads(content)
+                target = abs_folder / "settings.json"
+            elif resource == "smart-folder":
+                target = abs_folder / "smart-folder.md"
+            elif resource == "smartignore":
+                target = abs_folder / ".smartignore"
+            elif resource == "laws" and sub:
+                laws_dir = abs_folder / "laws"
+                laws_dir.mkdir(parents=True, exist_ok=True)
+                target = laws_dir / sub
+                if not str(target.resolve()).startswith(str(laws_dir.resolve())):
+                    self._respond(403, "application/json", json.dumps({"error": "Forbidden"}).encode())
+                    return
+            else:
+                self._respond(400, "application/json", json.dumps({"error": "Unknown resource"}).encode())
+                return
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+            self._respond(200, "application/json", json.dumps({"ok": True, "path": str(target)}).encode())
+        except json.JSONDecodeError:
+            self._respond(400, "application/json", json.dumps({"error": "Invalid JSON for settings"}).encode())
+        except Exception as e:
+            self._respond(500, "application/json", json.dumps({"error": str(e)}).encode())
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        guard = self._guard()
+        if guard:
+            return
+
+        if path == "/api/folders":
+            self._handle_create_folder()
+        elif path.startswith("/api/folders/") and path.endswith("/move-to-limbo"):
+            self._handle_move_to_limbo(path)
+        else:
+            self._respond(400, "application/json", json.dumps({"error": "Unknown POST endpoint"}).encode())
+            return
+
+    def _guard(self) -> bool:
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "")
+        csrf = self.headers.get("X-CSRF-Token", "")
+
+        allowed_hosts = (f"127.0.0.1:{self.server.server_address[1]}", f"localhost:{self.server.server_address[1]}")
+        host_ok = host in allowed_hosts
+        origin_ok = not origin or origin in (
+            f"http://127.0.0.1:{self.server.server_address[1]}",
+            f"http://localhost:{self.server.server_address[1]}",
+        )
+        csrf_ok = csrf == CSRF_TOKEN
+
+        if not host_ok or not csrf_ok or not origin_ok:
+            self._respond(403, "application/json", json.dumps({"error": "Forbidden"}).encode())
+            return True
+        return False
+
+    def _read_body(self) -> str | None:
+        length = int(self.headers.get("Content-Length", 0))
+        if length == 0:
+            self._respond(400, "application/json", json.dumps({"error": "Empty body"}).encode())
+            return None
+        try:
+            return self.rfile.read(length).decode("utf-8")
+        except Exception as e:
+            self._respond(400, "application/json", json.dumps({"error": f"Invalid body: {e}"}).encode())
+            return None
+
+    def _parse_folder_resource(self, path: str) -> tuple[str, str | None, str | None]:
         rest = path[len("/api/folders/"):]
         known_resources = {"settings", "smart-folder", "smartignore", "laws"}
+        parts = rest.split("/")
+        for i, part in enumerate(parts):
+            if part in known_resources:
+                folder_path = "/".join(parts[:i])
+                sub = "/".join(parts[i + 1:]) if i + 1 < len(parts) else None
+                return folder_path, part, sub
+        return rest, None, None
 
+    def _handle_folder_read(self, path: str):
+        rest = path[len("/api/folders/"):]
+        known_resources = {"settings", "smart-folder", "smartignore", "laws"}
         parts = rest.split("/")
         resource = None
         sub = None
         folder_path_str = rest
-
         for i, part in enumerate(parts):
             if part in known_resources:
                 folder_path_str = "/".join(parts[:i])
@@ -61,7 +168,6 @@ class Handler(BaseHTTPRequestHandler):
 
         root = self.server.root
         abs_folder = (root / folder_path_str).resolve()
-
         if not str(abs_folder).startswith(str(root.resolve())) or not abs_folder.exists():
             self._respond(404, "text/plain", b"Folder not found")
             return
@@ -75,14 +181,11 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if resource == "settings":
-            file_path = abs_folder / "settings.json"
-            self._serve_raw_file(file_path)
+            self._serve_raw_file(abs_folder / "settings.json")
         elif resource == "smart-folder":
-            file_path = abs_folder / "smart-folder.md"
-            self._serve_raw_file(file_path)
+            self._serve_raw_file(abs_folder / "smart-folder.md")
         elif resource == "smartignore":
-            file_path = abs_folder / ".smartignore"
-            self._serve_raw_file(file_path)
+            self._serve_raw_file(abs_folder / ".smartignore")
         elif resource == "laws":
             laws_dir = abs_folder / "laws"
             if sub:
@@ -93,6 +196,73 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_raw_file(law_file)
             else:
                 self._list_law_files(laws_dir)
+
+    def _handle_create_folder(self):
+        body = self._read_body()
+        if body is None:
+            return
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self._respond(400, "application/json", json.dumps({"error": "Invalid JSON"}).encode())
+            return
+
+        name = data.get("name", "").strip()
+        role = data.get("role", "Custom").strip()
+        purpose = data.get("purpose", "").strip()
+
+        if not name:
+            self._respond(400, "application/json", json.dumps({"error": "Name is required"}).encode())
+            return
+
+        root = self.server.root
+        folder_path = root / name
+        if folder_path.exists():
+            self._respond(409, "application/json", json.dumps({"error": "Folder already exists"}).encode())
+            return
+
+        try:
+            from smartfolders.templates import create_folder_structure
+            create_folder_structure(folder_path, name, role, purpose)
+            self._respond(201, "application/json", json.dumps({"ok": True, "path": name}).encode())
+        except Exception as e:
+            self._respond(500, "application/json", json.dumps({"error": str(e)}).encode())
+
+    def _handle_move_to_limbo(self, path: str):
+        rest = path[len("/api/folders/"):]
+        folder_path_str = rest.replace("/move-to-limbo", "").rstrip("/")
+        root = self.server.root
+        abs_folder = (root / folder_path_str).resolve()
+        if not str(abs_folder).startswith(str(root.resolve())) or not abs_folder.exists():
+            self._respond(404, "application/json", json.dumps({"error": "Folder not found"}).encode())
+            return
+
+        if abs_folder == root:
+            self._respond(400, "application/json", json.dumps({"error": "Cannot move root"}).encode())
+            return
+
+        limbo = self._get_limbo_dir()
+        try:
+            import shutil
+            dest = limbo / folder_path_str
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                import time
+                dest = limbo / f"{folder_path_str}_{int(time.time())}"
+            shutil.move(str(abs_folder), str(dest))
+            self._respond(200, "application/json", json.dumps({"ok": True, "moved_to": str(dest)}).encode())
+        except Exception as e:
+            self._respond(500, "application/json", json.dumps({"error": str(e)}).encode())
+
+    def _get_limbo_dir(self) -> Path:
+        root = self.server.root
+        for candidate in (root / ".." / "06_LIMBO", root.parent / "06_LIMBO", root.parent.parent / "06_LIMBO"):
+            resolved = candidate.resolve()
+            if resolved.is_dir():
+                return resolved
+        limbo = root.parent / "06_LIMBO"
+        limbo.mkdir(parents=True, exist_ok=True)
+        return limbo
 
     def _serve_raw_file(self, file_path: Path):
         if file_path.is_file():
@@ -134,7 +304,6 @@ class Handler(BaseHTTPRequestHandler):
         folders = scan(root)
         nodes = []
         edges = []
-
         for f in folders:
             nodes.append({
                 "id": f.relative_path,
@@ -148,43 +317,17 @@ class Handler(BaseHTTPRequestHandler):
                 "has_laws": f.has_laws,
                 "purpose": f.purpose or "",
             })
-
         for f in folders:
             c = f.connections or {}
             source = f.relative_path
             if c.get("parent"):
-                edges.append({
-                    "id": f"{c['parent']}->{source}",
-                    "source": c["parent"],
-                    "target": source,
-                    "type": "parent",
-                    "label": "parent",
-                })
+                edges.append({"id": f"{c['parent']}->{source}", "source": c["parent"], "target": source, "type": "parent", "label": "parent"})
             for child in c.get("children") or []:
-                edges.append({
-                    "id": f"{source}->{child}",
-                    "source": source,
-                    "target": child,
-                    "type": "child",
-                    "label": "child",
-                })
+                edges.append({"id": f"{source}->{child}", "source": source, "target": child, "type": "child", "label": "child"})
             for target in c.get("feeds_into") or []:
-                edges.append({
-                    "id": f"{source}->{target}",
-                    "source": source,
-                    "target": target,
-                    "type": "feeds_into",
-                    "label": "feeds into",
-                })
+                edges.append({"id": f"{source}->{target}", "source": source, "target": target, "type": "feeds_into", "label": "feeds into"})
             for target in c.get("receives_from") or []:
-                edges.append({
-                    "id": f"{target}->{source}",
-                    "source": target,
-                    "target": source,
-                    "type": "receives_from",
-                    "label": "receives from",
-                })
-
+                edges.append({"id": f"{target}->{source}", "source": target, "target": source, "type": "receives_from", "label": "receives from"})
         return {"nodes": nodes, "edges": edges}
 
     def _stats_data(self) -> dict:
@@ -193,13 +336,11 @@ class Handler(BaseHTTPRequestHandler):
         total = len(folders)
         if not total:
             return {"folders": 0, "total_budget": 0, "avg_budget": 0, "avg_files": 0, "roles": {}}
-
         total_budget = sum(f.token_budget for f in folders)
         total_files = sum(f.file_count for f in folders)
         roles = {}
         for f in folders:
             roles[f.role] = roles.get(f.role, 0) + 1
-
         return {
             "folders": total,
             "total_budget": total_budget,
@@ -225,7 +366,6 @@ class Handler(BaseHTTPRequestHandler):
             if CONTROL_OS_DIR.is_dir() and control_os_index.is_file():
                 return control_os_index
             return DASHBOARD_DIR / "index.html"
-
         cleaned = path.lstrip("/")
         for base in (CONTROL_OS_DIR, DASHBOARD_DIR):
             if not base.is_dir():
@@ -233,14 +373,12 @@ class Handler(BaseHTTPRequestHandler):
             candidate = (base / cleaned).resolve()
             if str(candidate).startswith(str(base.resolve())) and candidate.is_file():
                 return candidate
-
         if CONTROL_OS_DIR.is_dir():
             candidate = (CONTROL_OS_DIR / cleaned).resolve()
             if str(candidate).startswith(str(CONTROL_OS_DIR.resolve())) and not candidate.exists() and not candidate.suffix:
                 index = CONTROL_OS_DIR / "index.html"
                 if index.is_file():
                     return index
-
         return None
 
     def _content_type(self, path: Path) -> str:
@@ -259,9 +397,20 @@ class Handler(BaseHTTPRequestHandler):
     def _respond(self, code, ctype, body):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
         self.send_header("Content-Length", len(body))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.end_headers()
 
     def _folder_data(self) -> dict:
         root = self.server.root
@@ -356,9 +505,10 @@ def main():
     server.root = root
 
     print(f"Smart Folder Dashboard")
-    print(f"  Root : {root}")
-    print(f"  URL  : http://{args.host}:{args.port}")
-    print(f"  Stop : Ctrl+C")
+    print(f"  Root   : {root}")
+    print(f"  URL    : http://{args.host}:{args.port}")
+    print(f"  CSRF   : {CSRF_TOKEN[:16]}... (included in page via /api/csrf-token)")
+    print(f"  Stop   : Ctrl+C")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
