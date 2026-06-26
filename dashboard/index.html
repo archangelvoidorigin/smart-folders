@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Folders Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0F172A;
+  --surface: #1E293B;
+  --surface2: #334155;
+  --surface3: #475569;
+  --border: rgba(148,163,184,.1);
+  --border2: rgba(148,163,184,.18);
+  --border3: rgba(148,163,184,.25);
+  --text: #F1F5F9;
+  --text2: #94A3B8;
+  --text3: #64748B;
+  --accent: #22C55E;
+  --accent2: #4ADE80;
+  --accent-dim: rgba(34,197,94,.12);
+  --accent-glow: rgba(34,197,94,.06);
+  --green: #4ADE80;
+  --green-bg: rgba(74,222,128,.1);
+  --green-border: rgba(74,222,128,.2);
+  --yellow: #FBBF24;
+  --yellow-bg: rgba(251,191,36,.1);
+  --yellow-border: rgba(251,191,36,.2);
+  --red: #F87171;
+  --red-bg: rgba(248,113,113,.1);
+  --red-border: rgba(248,113,113,.2);
+  --blue: #60A5FA;
+  --blue-bg: rgba(96,165,250,.1);
+  --blue-border: rgba(96,165,250,.2);
+  --purple: #A78BFA;
+  --purple-bg: rgba(167,139,250,.1);
+  --purple-border: rgba(167,139,250,.2);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --ease: cubic-bezier(0.23,1,0.32,1);
+  --dur-f: 120ms;
+  --dur-n: 200ms;
+  --dur-m: 350ms;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { height:100%; }
+body {
+  height:100vh; overflow:hidden;
+  font-family:var(--font); background:var(--bg); color:var(--text);
+  display:flex; flex-direction:column;
+  font-size:14px; line-height:1.6;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% -20%, rgba(34,197,94,.04), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 110%, rgba(96,165,250,.03), transparent 60%);
+}
+
+::selection { background:rgba(34,197,94,.25); color:var(--text); }
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--surface3); border-radius:5px; }
+::-webkit-scrollbar-thumb:hover { background:var(--text3); }
+
+a.skip-link {
+  position:absolute; top:-100%; left:16px; padding:8px 16px;
+  background:var(--accent); color:#000; font-weight:600;
+  border-radius:0 0 var(--radius-sm) var(--radius-sm); z-index:999;
+  text-decoration:none; font-size:13px;
+}
+a.skip-link:focus { top:0; }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes ringDraw { from { stroke-dashoffset:100; } }
+
+.topbar {
+  display:flex; align-items:center; gap:12px;
+  padding:0 20px; height:52px; flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  background:rgba(15,23,42,.8);
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  position:relative; z-index:10;
+}
+.hamburger {
+  display:none; background:none; border:1px solid var(--border);
+  color:var(--text2); font-size:18px; cursor:pointer;
+  padding:4px 8px; border-radius:var(--radius-xs);
+  transition:all var(--dur-f) var(--ease); line-height:1;
+}
+.hamburger:hover { background:var(--surface); border-color:var(--border2); color:var(--text); }
+.logo {
+  display:flex; align-items:center; gap:10px;
+}
+.logo-icon {
+  width:28px; height:28px; border-radius:8px;
+  background:linear-gradient(135deg, #22C55E, #16A34A);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(34,197,94,.25);
+}
+.logo-icon svg { width:16px; height:16px; }
+.logo h1 {
+  font-size:15px; font-weight:700; letter-spacing:-.2px;
+  background:linear-gradient(135deg, var(--text), var(--text2));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.topbar-path {
+  margin-left:auto;
+  font-size:11px; color:var(--text3);
+  font-family:var(--mono);
+  background:var(--surface);
+  padding:4px 12px; border-radius:var(--radius-xs);
+  border:1px solid var(--border);
+  max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+.stats {
+  display:grid; grid-template-columns:repeat(4,1fr);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0; position:relative; z-index:1;
+  background:rgba(30,41,59,.4);
+}
+.stat {
+  padding:16px 20px; text-align:center; position:relative;
+  transition:background var(--dur-f) var(--ease);
+}
+.stat:hover { background:rgba(148,163,184,.03); }
+.stat::after {
+  content:''; position:absolute; right:0; top:22%; height:56%;
+  width:1px; background:var(--border);
+}
+.stat:last-child::after { display:none; }
+.stat-icon {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:32px; height:32px; border-radius:var(--radius-sm);
+  margin-bottom:6px;
+}
+.stat-icon svg { width:16px; height:16px; }
+.stat-icon.green { background:var(--green-bg); color:var(--green); }
+.stat-icon.blue { background:var(--blue-bg); color:var(--blue); }
+.stat-icon.purple { background:var(--purple-bg); color:var(--purple); }
+.stat-icon.yellow { background:var(--yellow-bg); color:var(--yellow); }
+.stat-val {
+  font-size:22px; font-weight:700; letter-spacing:-.5px;
+  color:var(--text); font-family:var(--mono);
+  font-variant-numeric:tabular-nums; display:block;
+}
+.stat-lbl {
+  font-size:11px; color:var(--text3); margin-top:2px;
+  font-weight:500; letter-spacing:.2px;
+}
+
+.main { flex:1; min-height:0; display:flex; overflow:hidden; position:relative; z-index:1; }
+
+.sidebar {
+  width:260px; min-width:260px; background:var(--surface);
+  border-right:1px solid var(--border); overflow-y:auto;
+  display:flex; flex-direction:column; flex-shrink:0;
+}
+.sidebar-top {
+  padding:16px 16px 12px; border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.sidebar-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px;
+}
+.sidebar-header h3 {
+  font-size:11px; color:var(--text3); text-transform:uppercase;
+  letter-spacing:1px; font-weight:600;
+}
+.sidebar-count {
+  font-size:10px; color:var(--text3); font-family:var(--mono);
+  background:var(--bg); padding:2px 8px; border-radius:10px;
+  border:1px solid var(--border);
+}
+.search-box {
+  width:100%; padding:8px 12px 8px 34px;
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--text);
+  font-size:12px; font-family:var(--font);
+  transition:all var(--dur-f) var(--ease);
+  outline:none;
+}
+.search-box:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-dim); }
+.search-box::placeholder { color:var(--text3); }
+.search-wrap { position:relative; }
+.search-wrap svg {
+  position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  width:14px; height:14px; color:var(--text3); pointer-events:none;
+}
+
+.folder-list { padding:8px; flex:1; overflow-y:auto; }
+.folder-item {
+  padding:10px 12px; border-radius:var(--radius-sm);
+  cursor:pointer; margin-bottom:2px;
+  transition:all var(--dur-f) var(--ease);
+  border:1px solid transparent;
+  animation:slideIn var(--dur-m) var(--ease) both;
+}
+.folder-item:hover { background:rgba(148,163,184,.06); border-color:var(--border); }
+.folder-item:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.folder-item.active {
+  background:var(--accent-dim); border-color:rgba(34,197,94,.2);
+}
+.folder-item-content { display:flex; align-items:center; gap:10px; }
+.folder-icon {
+  width:32px; height:32px; border-radius:var(--radius-xs);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; border:1px solid var(--border);
+  transition:all var(--dur-f) var(--ease);
+}
+.folder-icon svg { width:16px; height:16px; }
+.folder-item.active .folder-icon { border-color:rgba(34,197,94,.35); }
+.folder-text { min-width:0; flex:1; }
+.folder-name {
+  font-size:13px; font-weight:500; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.folder-item.active .folder-name { color:var(--accent2); }
+.folder-meta {
+  display:flex; align-items:center; gap:6px; margin-top:3px;
+}
+.role-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:1px 8px; border-radius:10px;
+  font-size:10px; font-weight:600; letter-spacing:.2px;
+}
+.folder-budget {
+  font-size:10px; color:var(--text3); font-family:var(--mono);
+}
+
+.content {
+  flex:1; min-height:0; padding:16px 20px;
+  overflow-y:auto; display:flex; flex-direction:column; gap:12px;
+}
+.panel {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px 18px;
+  flex-shrink:0; animation:fadeUp var(--dur-m) var(--ease) both;
+  transition:border-color var(--dur-n) var(--ease);
+}
+.panel:hover { border-color:var(--border2); }
+.panel-head {
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:12px; user-select:none;
+}
+.panel-head svg { width:14px; height:14px; color:var(--accent); flex-shrink:0; }
+.panel-head h2 {
+  font-size:11px; color:var(--text2); text-transform:uppercase;
+  letter-spacing:.8px; font-weight:600;
+}
+
+.welcome {
+  background:linear-gradient(135deg, rgba(34,197,94,.08), rgba(96,165,250,.06));
+  border:1px solid rgba(34,197,94,.15);
+  border-radius:var(--radius); padding:20px 24px;
+  display:flex; align-items:center; gap:16px;
+  animation:fadeUp var(--dur-m) var(--ease) both;
+}
+.welcome-icon {
+  width:48px; height:48px; border-radius:12px;
+  background:linear-gradient(135deg,#22C55E,#16A34A);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; box-shadow:0 4px 12px rgba(34,197,94,.2);
+}
+.welcome-icon svg { width:24px; height:24px; }
+.welcome-text h2 { font-size:16px; font-weight:700; color:var(--text); margin-bottom:4px; }
+.welcome-text p { font-size:13px; color:var(--text2); line-height:1.5; }
+
+.health-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.health-card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:12px 14px;
+  display:flex; align-items:center; gap:12px;
+  transition:all var(--dur-f) var(--ease);
+}
+.health-card:hover { border-color:var(--border2); }
+.health-ring {
+  width:40px; height:40px; flex-shrink:0; position:relative;
+}
+.health-ring svg { width:40px; height:40px; transform:rotate(-90deg); }
+.health-ring circle { fill:none; stroke-width:3; stroke-linecap:round; }
+.health-ring .ring-bg { stroke:var(--surface2); }
+.health-ring .ring-fill { transition:stroke-dashoffset 0.8s var(--ease); }
+.health-ring .ring-pct {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700; font-family:var(--mono);
+}
+.health-info .health-label { font-size:12px; font-weight:500; color:var(--text); }
+.health-info .health-count {
+  font-size:11px; color:var(--text3); font-family:var(--mono); margin-top:1px;
+}
+
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.detail-card {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:12px 14px;
+  transition:border-color var(--dur-f) var(--ease);
+}
+.detail-card:hover { border-color:var(--border2); }
+.detail-card.full { grid-column:1 / -1; }
+.detail-label {
+  font-size:10px; color:var(--text3); text-transform:uppercase;
+  letter-spacing:.8px; font-weight:600; margin-bottom:4px;
+}
+.detail-value {
+  font-size:13px; color:var(--text); word-break:break-all;
+  font-family:var(--mono); font-variant-numeric:tabular-nums;
+}
+
+.budget-section { margin-top:4px; }
+.budget-row {
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:8px;
+}
+.budget-label { font-size:11px; color:var(--text2); width:90px; flex-shrink:0; }
+.budget-bar-wrap {
+  flex:1; height:8px; background:var(--bg);
+  border-radius:4px; overflow:hidden; border:1px solid var(--border);
+}
+.budget-bar {
+  height:100%; border-radius:4px;
+  background:linear-gradient(90deg, var(--accent), var(--accent2));
+  transition:width 0.6s var(--ease);
+}
+.budget-bar.warn { background:linear-gradient(90deg, var(--yellow), #F59E0B); }
+.budget-bar.high { background:linear-gradient(90deg, var(--red), #EF4444); }
+.budget-val { font-size:11px; color:var(--text2); font-family:var(--mono); width:60px; text-align:right; }
+
+.conn-grid { display:flex; flex-direction:column; gap:6px; }
+.conn-row { display:flex; align-items:center; gap:8px; }
+.conn-arrow {
+  font-size:10px; font-weight:700; font-family:var(--mono);
+  padding:2px 8px; border-radius:var(--radius-xs);
+  flex-shrink:0; min-width:24px; text-align:center;
+}
+.conn-arrow.in { color:var(--blue); background:var(--blue-bg); }
+.conn-arrow.out { color:var(--green); background:var(--green-bg); }
+.conn-arrow.parent { color:var(--purple); background:var(--purple-bg); }
+.conn-name {
+  font-size:12px; color:var(--text); font-family:var(--mono);
+  padding:4px 12px; background:var(--bg);
+  border:1px solid var(--border); border-radius:var(--radius-xs);
+  transition:all var(--dur-f) var(--ease);
+}
+.conn-name:hover { border-color:var(--border2); background:var(--surface2); }
+.conn-type { font-size:10px; color:var(--text3); margin-left:auto; }
+.empty-state { color:var(--text3); font-size:12px; font-style:italic; padding:4px 0; }
+
+.action-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.action-btn {
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding:16px 12px; border:1px solid var(--border);
+  border-radius:var(--radius-sm); background:var(--bg);
+  cursor:pointer; transition:all var(--dur-n) var(--ease);
+  color:var(--text); font-family:var(--font);
+}
+.action-btn:hover {
+  background:var(--surface2); border-color:var(--border2);
+  transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.2);
+}
+.action-btn:active { transform:translateY(0); }
+.action-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.action-btn.running { pointer-events:none; opacity:.7; }
+.action-btn .action-icon {
+  width:36px; height:36px; border-radius:var(--radius-sm);
+  display:flex; align-items:center; justify-content:center;
+}
+.action-btn .action-icon svg { width:18px; height:18px; }
+.action-btn .action-icon.gi { background:var(--green-bg); color:var(--green); }
+.action-btn .action-icon.bi { background:var(--blue-bg); color:var(--blue); }
+.action-btn .action-icon.pi { background:var(--purple-bg); color:var(--purple); }
+.action-btn .action-name { font-size:12px; font-weight:600; }
+.action-btn .action-desc { font-size:10px; color:var(--text3); text-align:center; line-height:1.4; }
+.action-spinner {
+  width:18px; height:18px; border:2px solid var(--border2);
+  border-top-color:var(--accent); border-radius:50%;
+  animation:spin .6s linear infinite;
+}
+
+.output-panel {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:14px 16px;
+  font-family:var(--mono); font-size:11px;
+  white-space:pre-wrap; word-break:break-all;
+  max-height:280px; overflow-y:auto;
+  color:var(--accent); line-height:1.6;
+  display:none; margin-top:10px;
+  position:relative;
+}
+.output-panel .close-output {
+  position:absolute; top:8px; right:8px;
+  background:var(--surface2); border:1px solid var(--border);
+  color:var(--text3); cursor:pointer; border-radius:4px;
+  width:22px; height:22px; display:flex; align-items:center; justify-content:center;
+  font-size:12px; transition:all var(--dur-f) var(--ease);
+}
+.output-panel .close-output:hover { background:var(--surface3); color:var(--text); }
+
+.r-knowledge { background:rgba(96,165,250,.12); border:1px solid rgba(96,165,250,.2); color:#93C5FD; }
+.r-knowledge .folder-icon { background:rgba(96,165,250,.1); color:#60A5FA; }
+.r-creator { background:rgba(248,113,113,.12); border:1px solid rgba(248,113,113,.2); color:#FCA5A5; }
+.r-creator .folder-icon { background:rgba(248,113,113,.1); color:#F87171; }
+.r-architect { background:rgba(251,191,36,.12); border:1px solid rgba(251,191,36,.2); color:#FDE68A; }
+.r-architect .folder-icon { background:rgba(251,191,36,.1); color:#FBBF24; }
+.r-connector { background:rgba(192,38,211,.12); border:1px solid rgba(192,38,211,.2); color:#E879F9; }
+.r-connector .folder-icon { background:rgba(192,38,211,.1); color:#C026D3; }
+.r-chronicler { background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.2); color:#86EFAC; }
+.r-chronicler .folder-icon { background:rgba(34,197,94,.1); color:#22C55E; }
+.r-enabler { background:rgba(6,182,212,.12); border:1px solid rgba(6,182,212,.2); color:#67E8F9; }
+.r-enabler .folder-icon { background:rgba(6,182,212,.1); color:#06B6D4; }
+.r-archive { background:rgba(148,163,184,.1); border:1px solid rgba(148,163,184,.15); color:#CBD5E1; }
+.r-archive .folder-icon { background:rgba(148,163,184,.08); color:#94A3B8; }
+.r-staging { background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.2); color:#C4B5FD; }
+.r-staging .folder-icon { background:rgba(167,139,250,.1); color:#A78BFA; }
+.r-custom { background:rgba(148,163,184,.08); border:1px solid rgba(148,163,184,.1); color:var(--text2); }
+.r-custom .folder-icon { background:rgba(148,163,184,.06); color:var(--text3); }
+
+@media (max-width:1024px) {
+  .action-grid { grid-template-columns:1fr 1fr; }
+  .health-grid { grid-template-columns:1fr; }
+}
+@media (max-width:900px) {
+  .sidebar {
+    position:fixed; top:0; left:0; bottom:0; z-index:99;
+    transform:translateX(-100%); width:300px; min-width:300px;
+    background:var(--surface); transition:transform var(--dur-m) var(--ease);
+  }
+  .sidebar.open { transform:translateX(0); }
+  .hamburger { display:block; }
+  .content { padding:12px; }
+  .detail-grid { grid-template-columns:1fr; }
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .stat:nth-child(2)::after { display:none; }
+}
+@media (max-width:600px) {
+  .stats { grid-template-columns:1fr 1fr; }
+  .topbar { padding:0 12px; height:48px; }
+  .logo h1 { font-size:13px; }
+  .content { padding:10px; gap:8px; }
+  .panel { padding:14px; }
+  .stat { padding:12px; }
+  .stat-val { font-size:18px; }
+  .sidebar { width:100%; min-width:100%; }
+  .action-grid { grid-template-columns:1fr; }
+  .welcome { flex-direction:column; text-align:center; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  *, *::before, *::after {
+    animation-duration:0ms !important;
+    transition-duration:0ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<a href="#content-area" class="skip-link">Skip to main content</a>
+
+<div class="topbar">
+  <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle folder list">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+      </svg>
+    </div>
+    <h1>Smart Folders</h1>
+  </div>
+  <span class="topbar-path" id="root-path" title="">Loading...</span>
+</div>
+
+<div class="stats" role="region" aria-label="Summary statistics">
+  <div class="stat">
+    <div class="stat-icon green">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+      </svg>
+    </div>
+    <span class="stat-val" id="s-folders">--</span>
+    <span class="stat-lbl">Folders</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 00-16 0"/>
+      </svg>
+    </div>
+    <span class="stat-val" id="s-roles">--</span>
+    <span class="stat-lbl">Roles</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon purple">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
+    <span class="stat-val" id="s-tokens">--</span>
+    <span class="stat-lbl">Total Budget</span>
+  </div>
+  <div class="stat">
+    <div class="stat-icon yellow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>
+      </svg>
+    </div>
+    <span class="stat-val" id="s-avg">--</span>
+    <span class="stat-lbl">Avg Budget</span>
+  </div>
+</div>
+
+<div class="main" role="main">
+  <nav class="sidebar" id="sidebar" aria-label="Folder list">
+    <div class="sidebar-top">
+      <div class="sidebar-header">
+        <h3>Folders</h3>
+        <span class="sidebar-count" id="folder-count">0</span>
+      </div>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="search" class="search-box" id="search" placeholder="Filter folders..." aria-label="Filter folders">
+      </div>
+    </div>
+    <div class="folder-list" id="folder-list"></div>
+  </nav>
+
+  <div class="content" id="content-area">
+    <div class="welcome" id="welcome-panel">
+      <div class="welcome-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          <line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/>
+        </svg>
+      </div>
+      <div class="welcome-text">
+        <h2>Welcome to Smart Folders</h2>
+        <p>Your AI workspace at a glance. Select a folder from the sidebar to see its role, health, token budget, and connections. Use the actions below to validate, audit, or map your project.</p>
+      </div>
+    </div>
+
+    <div class="panel" id="health-panel">
+      <div class="panel-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <h2>Health Overview</h2>
+      </div>
+      <div class="health-grid" id="health-grid"></div>
+    </div>
+
+    <div class="panel" id="detail-panel" style="display:none">
+      <div class="panel-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <h2 id="detail-name">Folder Details</h2>
+      </div>
+      <div class="detail-grid" id="detail-grid"></div>
+      <div class="budget-section" id="budget-section"></div>
+    </div>
+
+    <div class="panel" id="conn-panel" style="display:none">
+      <div class="panel-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        <h2>Connections</h2>
+      </div>
+      <div class="conn-grid" id="connections"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <h2>Actions</h2>
+      </div>
+      <div class="action-grid">
+        <button class="action-btn" onclick="runScript('validate')" id="btn-validate" tabindex="0">
+          <div class="action-icon gi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <span class="action-name">Validate</span>
+          <span class="action-desc">Check structure and settings</span>
+        </button>
+        <button class="action-btn" onclick="runScript('audit')" id="btn-audit" tabindex="0">
+          <div class="action-icon bi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>
+            </svg>
+          </div>
+          <span class="action-name">Audit</span>
+          <span class="action-desc">Analyze token usage</span>
+        </button>
+        <button class="action-btn" onclick="runScript('map')" id="btn-map" tabindex="0">
+          <div class="action-icon pi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </div>
+          <span class="action-name">Map</span>
+          <span class="action-desc">View folder tree</span>
+        </button>
+      </div>
+      <div class="output-panel" id="output">
+        <button class="close-output" onclick="closeOutput()" aria-label="Close output">&times;</button>
+        <div id="output-text"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sidebar-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:98;backdrop-filter:blur(2px)" onclick="toggleSidebar()"></div>
+
+<script>
+let data = null;
+let selected = null;
+
+const ROLE_ICONS = {
+  'Knowledge Keeper': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
+  'Creator': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
+  'Architect': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+  'Connector': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>',
+  'Chronicler': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  'Enabler': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
+  'Archive': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
+  'Staging': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 11-4 0"/><path d="M5.58 16.5h12.85"/></svg>',
+  'Custom': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>',
+};
+
+const ROLE_CLASS = {
+  'Knowledge Keeper':'r-knowledge','Creator':'r-creator','Architect':'r-architect',
+  'Connector':'r-connector','Chronicler':'r-chronicler','Enabler':'r-enabler',
+  'Archive':'r-archive','Staging':'r-staging','Custom':'r-custom'
+};
+
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const o = document.getElementById('sidebar-overlay');
+  s.classList.toggle('open');
+  o.style.display = s.classList.contains('open') ? 'block' : 'none';
+}
+
+document.getElementById('search').addEventListener('input', function(e) {
+  const q = e.target.value.toLowerCase();
+  document.querySelectorAll('.folder-item').forEach(el => {
+    const name = el.getAttribute('data-name') || '';
+    const role = el.getAttribute('data-role') || '';
+    el.style.display = (name.includes(q) || role.includes(q)) ? '' : 'none';
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && window.innerWidth <= 900) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').style.display = 'none';
+  }
+});
+
+async function load() {
+  try {
+    const res = await fetch('/api/folders');
+    data = await res.json();
+    render();
+  } catch(e) {
+    document.getElementById('content-area').innerHTML =
+      '<div class="panel"><div class="panel-head"><h2>Connection Error</h2></div>' +
+      '<p style="color:var(--red);font-size:13px">Could not load dashboard data. Is the server running?</p></div>';
+  }
+}
+
+async function fetchApi(path) {
+  const res = await fetch(path);
+  return await res.json();
+}
+
+function render() {
+  const rp = document.getElementById('root-path');
+  rp.textContent = data.root;
+  rp.title = data.root;
+
+  const total = data.folders.reduce((s,f) => s + f.token_budget, 0);
+  const avg = data.folders.length ? Math.round(total / data.folders.length) : 0;
+  const roles = new Set(data.folders.map(f => f.role)).size;
+
+  setStatAnimated('s-folders', data.folders.length);
+  setStatAnimated('s-roles', roles);
+  setStatAnimated('s-tokens', total);
+  setStatAnimated('s-avg', avg);
+  document.getElementById('folder-count').textContent = data.folders.length;
+
+  const list = document.getElementById('folder-list');
+  list.innerHTML = data.folders.map((f, i) =>
+    '<div class="folder-item' + (i === 0 ? ' active' : '') + '" ' +
+    'onclick="selectFolder(' + i + ')" id="fi-' + i + '" tabindex="0" ' +
+    'data-name="' + f.name.toLowerCase() + '" data-role="' + f.role.toLowerCase() + '" ' +
+    'role="button" aria-label="' + f.name + ' - ' + f.role + '" ' +
+    'style="animation-delay:' + (i * 0.04) + 's">' +
+    '<div class="folder-item-content">' +
+    '<div class="folder-icon">' + (ROLE_ICONS[f.role] || ROLE_ICONS['Custom']) + '</div>' +
+    '<div class="folder-text">' +
+    '<div class="folder-name">' + escHtml(f.name) + '</div>' +
+    '<div class="folder-meta">' +
+    '<span class="role-badge ' + (ROLE_CLASS[f.role] || 'r-custom') + '">' + escHtml(f.role) + '</span>' +
+    '<span class="folder-budget">' + f.token_budget.toLocaleString() + '</span>' +
+    '</div></div></div></div>'
+  ).join('');
+
+  list.querySelectorAll('.folder-item').forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
+  });
+
+  renderHealth();
+  if (data.folders.length > 0) selectFolder(0, true);
+}
+
+function renderHealth() {
+  const total = data.folders.length;
+  if (!total) return;
+  const checks = [
+    { label:'Smart Folder', key:'has_smart', color:'var(--green)' },
+    { label:'Settings', key:'has_settings', color:'var(--blue)' },
+    { label:'Ignore Rules', key:'has_ignore', color:'var(--yellow)' },
+    { label:'Laws', key:'has_laws', color:'var(--purple)' },
+  ];
+  const grid = document.getElementById('health-grid');
+  grid.innerHTML = checks.map(c => {
+    const count = data.folders.filter(f => f[c.key]).length;
+    const pct = Math.round(count / total * 100);
+    const circumference = 2 * Math.PI * 15.9;
+    const offset = circumference * (1 - pct / 100);
+    return '<div class="health-card">' +
+      '<div class="health-ring">' +
+      '<svg viewBox="0 0 36 36"><circle class="ring-bg" cx="18" cy="18" r="15.9"/>' +
+      '<circle class="ring-fill" cx="18" cy="18" r="15.9" stroke="' + c.color + '" ' +
+      'stroke-dasharray="' + circumference.toFixed(1) + '" ' +
+      'stroke-dashoffset="' + offset.toFixed(1) + '" ' +
+      'style="animation:ringDraw 0.8s var(--ease) both"/></svg>' +
+      '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:var(--mono);color:' + c.color + '">' + pct + '%</span>' +
+      '</div>' +
+      '<div class="health-info">' +
+      '<div class="health-label">' + c.label + '</div>' +
+      '<div class="health-count">' + count + ' / ' + total + ' folders</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+function selectFolder(i, initial) {
+  selected = i;
+  document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('fi-' + i);
+  if (el) el.classList.add('active');
+  if (!initial && window.innerWidth <= 900) toggleSidebar();
+
+  const f = data.folders[i];
+  document.getElementById('welcome-panel').style.display = 'none';
+  document.getElementById('detail-panel').style.display = '';
+  document.getElementById('conn-panel').style.display = '';
+
+  document.getElementById('detail-name').textContent = f.name;
+
+  const fields = [
+    { label:'Role', val:f.role },
+    { label:'Depth', val:f.depth || 'default' },
+    { label:'Purpose', val:f.purpose || 'Not set', full:true },
+    { label:'Path', val:f.path, full:true },
+  ];
+  document.getElementById('detail-grid').innerHTML = fields.map(fld =>
+    '<div class="detail-card' + (fld.full ? ' full' : '') + '">' +
+    '<div class="detail-label">' + fld.label + '</div>' +
+    '<div class="detail-value">' + escHtml(String(fld.val)) + '</div></div>'
+  ).join('');
+
+  const bsec = document.getElementById('budget-section');
+  const maxBudget = 50000;
+  const bPct = Math.min(100, Math.round(f.token_budget / maxBudget * 100));
+  const fPct = f.file_limit ? Math.min(100, Math.round(f.file_count / f.file_limit * 100)) : 0;
+  bsec.innerHTML =
+    '<div class="budget-row"><span class="budget-label">Token Budget</span>' +
+    '<div class="budget-bar-wrap"><div class="budget-bar' + (bPct > 70 ? ' warn' : '') + (bPct > 90 ? ' high' : '') + '" style="width:' + bPct + '%"></div></div>' +
+    '<span class="budget-val">' + f.token_budget.toLocaleString() + '</span></div>' +
+    '<div class="budget-row"><span class="budget-label">File Count</span>' +
+    '<div class="budget-bar-wrap"><div class="budget-bar' + (fPct > 70 ? ' warn' : '') + (fPct > 90 ? ' high' : '') + '" style="width:' + fPct + '%"></div></div>' +
+    '<span class="budget-val">' + f.file_count + ' / ' + f.file_limit + '</span></div>';
+
+  const conns = document.getElementById('connections');
+  const c = f.connections || {};
+  let connHtml = '';
+  if (c.parent) connHtml += '<div class="conn-row"><span class="conn-arrow parent">P</span><span class="conn-name">' + escHtml(c.parent) + '</span><span class="conn-type">parent</span></div>';
+  (c.children || []).forEach(ch => { connHtml += '<div class="conn-row"><span class="conn-arrow out">C</span><span class="conn-name">' + escHtml(ch) + '</span><span class="conn-type">child</span></div>'; });
+  (c.feeds_into || []).forEach(fd => { connHtml += '<div class="conn-row"><span class="conn-arrow out">→</span><span class="conn-name">' + escHtml(fd) + '</span><span class="conn-type">feeds into</span></div>'; });
+  (c.receives_from || []).forEach(rf => { connHtml += '<div class="conn-row"><span class="conn-arrow in">←</span><span class="conn-name">' + escHtml(rf) + '</span><span class="conn-type">receives from</span></div>'; });
+  conns.innerHTML = connHtml || '<div class="empty-state">No connections defined</div>';
+}
+
+async function runScript(action) {
+  const btn = document.getElementById('btn-' + action);
+  const out = document.getElementById('output');
+  const txt = document.getElementById('output-text');
+  btn.classList.add('running');
+  btn.innerHTML = '<div class="action-spinner"></div>';
+  out.style.display = 'block';
+  txt.textContent = 'Running ' + action + '...';
+
+  try {
+    const res = await fetch('/api/' + action);
+    const data = await res.json();
+    txt.textContent = data.output || data.error || 'Done.';
+  } catch(e) {
+    txt.textContent = 'Error: ' + e.message;
+  }
+
+  const icons = { validate:'gi', audit:'bi', map:'pi' };
+  btn.innerHTML = '<div class="action-icon ' + (icons[action] || 'gi') + '">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+    '<span class="action-name">' + action.charAt(0).toUpperCase() + action.slice(1) + '</span>' +
+    '<span class="action-desc">Complete</span>';
+  setTimeout(() => { btn.classList.remove('running'); btn.innerHTML = btn.innerHTML.replace('Complete', action === 'validate' ? 'Check structure' : action === 'audit' ? 'Analyze usage' : 'View tree'); }, 3000);
+}
+
+function closeOutput() {
+  document.getElementById('output').style.display = 'none';
+}
+
+function setStatAnimated(id, val) { document.getElementById(id).textContent = val.toLocaleString(); }
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+load();
+</script>
+</body>
+</html>
