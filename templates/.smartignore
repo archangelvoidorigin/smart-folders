@@ -1,0 +1,60 @@
+# .smartignore — Cognitive Boundaries
+# Agents must NOT load or consider these files/directories.
+# Syntax identical to .gitignore.
+
+# Dependencies and build artifacts
+node_modules/
+vendor/
+dist/
+build/
+.cache/
+*.lock
+*.log
+*.tmp
+*.temp
+
+# Version control
+.git/
+.svn/
+.hg/
+
+# Secrets and credentials
+.env
+.env.*
+*.secret
+*.key
+*.pem
+*.cert
+credentials/
+secrets/
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Binary and archive files
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+*.iso
+*.img
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3

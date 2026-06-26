@@ -17,6 +17,9 @@ help:
 	@echo "  make navigate                   Interactive navigation assistant"
 	@echo "  make validate-examples          Validate all examples"
 	@echo "  make clean                      Remove generated files"
+	@echo ""
+	@echo "Zero-dependency core: Python stdlib only."
+	@echo "For the graph-based Control OS, see: make control-os"
 
 init:
 	bash scripts/init.sh $(FOLDER) Creator medium
@@ -28,7 +31,7 @@ convert:
 	python scripts/convert.py $(FOLDER) --agent $(AGENT)
 
 map:
-	python scripts/map.py $(FOLDER) --stats --connections
+	python scripts/map.py $(FOLDER)
 
 audit:
 	python scripts/audit.py $(FOLDER)
@@ -48,5 +51,10 @@ validate-examples:
 	python scripts/validate.py examples/api-service/
 
 clean:
-	find . -type f -name "audit-report.json" -delete
+	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+control-os:
+	@echo "Control OS is an optional power-up (Vite + Cytoscape)."
+	@echo "To build: cd control-os && npm install && npm run build"
+	@echo "Control OS is NOT required. The Lite dashboard works with zero deps."

@@ -1,0 +1,37 @@
+{
+  "folder": {
+    "name": "{{name}}",
+    "role": "{{role}}",
+    "sub_role": null,
+    "level": 0,
+    "depth": "{{depth}}",
+    "purpose": "{{purpose}}"
+  },
+  "boundaries": {
+    "can_see": ["*.md", "*.json", "*.py", "*.js", "*.ts"],
+    "cannot_see": ["*.log", "node_modules/", ".cache/", "*.tmp", ".git/", "secrets/"],
+    "token_budget": 8000,
+    "file_limit": 500,
+    "depth_limit": 5
+  },
+  "connections": {
+    "parent": null,
+    "children": [],
+    "siblings": [],
+    "tools": ["search", "summarize"],
+    "feeds_into": [],
+    "receives_from": []
+  },
+  "agents": {
+    "allowed": {{agents}},
+    "preferred": "claude",
+    "restricted": []
+  },
+  "metadata": {
+    "created": "{{date}}",
+    "author": "{{author}}",
+    "last_modified": "{{date}}",
+    "quality_score": 1.0,
+    "version": 1
+  }
+}

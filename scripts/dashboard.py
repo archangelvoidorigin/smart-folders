@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
+import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-SCRIPTS_DIR = Path(__file__).parent
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from smartfolders.core import scan
+from smartfolders.ops import validate_folder, audit_all, print_audit, build_map, render_tree, render_stats, render_connections
 
 HTML = r"""<!DOCTYPE html>
 <html lang="en">
@@ -79,7 +81,6 @@ body {
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
 
-/* Subtle ambient glow */
 body::before {
   content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
   background:
@@ -108,7 +109,6 @@ a.skip-link:focus { top:0; }
 @keyframes spin { to { transform:rotate(360deg); } }
 @keyframes ringDraw { from { stroke-dashoffset:100; } }
 
-/* ===== TOPBAR ===== */
 .topbar {
   display:flex; align-items:center; gap:12px;
   padding:0 20px; height:52px; flex-shrink:0;
@@ -150,7 +150,6 @@ a.skip-link:focus { top:0; }
   max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
-/* ===== STATS BAR ===== */
 .stats {
   display:grid; grid-template-columns:repeat(4,1fr);
   border-bottom:1px solid var(--border);
@@ -187,10 +186,8 @@ a.skip-link:focus { top:0; }
   font-weight:500; letter-spacing:.2px;
 }
 
-/* ===== MAIN LAYOUT ===== */
 .main { flex:1; min-height:0; display:flex; overflow:hidden; position:relative; z-index:1; }
 
-/* ===== SIDEBAR ===== */
 .sidebar {
   width:260px; min-width:260px; background:var(--surface);
   border-right:1px solid var(--border); overflow-y:auto;
@@ -269,7 +266,6 @@ a.skip-link:focus { top:0; }
   font-size:10px; color:var(--text3); font-family:var(--mono);
 }
 
-/* ===== CONTENT ===== */
 .content {
   flex:1; min-height:0; padding:16px 20px;
   overflow-y:auto; display:flex; flex-direction:column; gap:12px;
@@ -291,7 +287,6 @@ a.skip-link:focus { top:0; }
   letter-spacing:.8px; font-weight:600;
 }
 
-/* ===== WELCOME PANEL ===== */
 .welcome {
   background:linear-gradient(135deg, rgba(34,197,94,.08), rgba(96,165,250,.06));
   border:1px solid rgba(34,197,94,.15);
@@ -309,7 +304,6 @@ a.skip-link:focus { top:0; }
 .welcome-text h2 { font-size:16px; font-weight:700; color:var(--text); margin-bottom:4px; }
 .welcome-text p { font-size:13px; color:var(--text2); line-height:1.5; }
 
-/* ===== HEALTH PANEL ===== */
 .health-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
 .health-card {
   background:var(--bg); border:1px solid var(--border);
@@ -334,7 +328,6 @@ a.skip-link:focus { top:0; }
   font-size:11px; color:var(--text3); font-family:var(--mono); margin-top:1px;
 }
 
-/* ===== DETAIL GRID ===== */
 .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .detail-card {
   background:var(--bg); border:1px solid var(--border);
@@ -352,7 +345,6 @@ a.skip-link:focus { top:0; }
   font-family:var(--mono); font-variant-numeric:tabular-nums;
 }
 
-/* ===== BUDGET BAR ===== */
 .budget-section { margin-top:4px; }
 .budget-row {
   display:flex; align-items:center; gap:12px;
@@ -372,7 +364,6 @@ a.skip-link:focus { top:0; }
 .budget-bar.high { background:linear-gradient(90deg, var(--red), #EF4444); }
 .budget-val { font-size:11px; color:var(--text2); font-family:var(--mono); width:60px; text-align:right; }
 
-/* ===== CONNECTIONS ===== */
 .conn-grid { display:flex; flex-direction:column; gap:6px; }
 .conn-row { display:flex; align-items:center; gap:8px; }
 .conn-arrow {
@@ -393,7 +384,6 @@ a.skip-link:focus { top:0; }
 .conn-type { font-size:10px; color:var(--text3); margin-left:auto; }
 .empty-state { color:var(--text3); font-size:12px; font-style:italic; padding:4px 0; }
 
-/* ===== ACTIONS ===== */
 .action-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .action-btn {
   display:flex; flex-direction:column; align-items:center; gap:8px;
@@ -444,7 +434,6 @@ a.skip-link:focus { top:0; }
 }
 .output-panel .close-output:hover { background:var(--surface3); color:var(--text); }
 
-/* ===== ROLE COLORS ===== */
 .r-knowledge { background:rgba(96,165,250,.12); border:1px solid rgba(96,165,250,.2); color:#93C5FD; }
 .r-knowledge .folder-icon { background:rgba(96,165,250,.1); color:#60A5FA; }
 .r-creator { background:rgba(248,113,113,.12); border:1px solid rgba(248,113,113,.2); color:#FCA5A5; }
@@ -464,7 +453,6 @@ a.skip-link:focus { top:0; }
 .r-custom { background:rgba(148,163,184,.08); border:1px solid rgba(148,163,184,.1); color:var(--text2); }
 .r-custom .folder-icon { background:rgba(148,163,184,.06); color:var(--text3); }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width:1024px) {
   .action-grid { grid-template-columns:1fr 1fr; }
   .health-grid { grid-template-columns:1fr; }
@@ -674,7 +662,6 @@ a.skip-link:focus { top:0; }
 let data = null;
 let selected = null;
 
-/* ===== SVG ICON TEMPLATES ===== */
 const ROLE_ICONS = {
   'Knowledge Keeper': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
   'Creator': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
@@ -693,7 +680,6 @@ const ROLE_CLASS = {
   'Archive':'r-archive','Staging':'r-staging','Custom':'r-custom'
 };
 
-/* ===== SIDEBAR ===== */
 function toggleSidebar() {
   const s = document.getElementById('sidebar');
   const o = document.getElementById('sidebar-overlay');
@@ -701,7 +687,6 @@ function toggleSidebar() {
   o.style.display = s.classList.contains('open') ? 'block' : 'none';
 }
 
-/* ===== SEARCH ===== */
 document.getElementById('search').addEventListener('input', function(e) {
   const q = e.target.value.toLowerCase();
   document.querySelectorAll('.folder-item').forEach(el => {
@@ -718,7 +703,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-/* ===== DATA LOADING ===== */
 async function load() {
   try {
     const res = await fetch('/api/data');
@@ -731,14 +715,11 @@ async function load() {
   }
 }
 
-/* ===== RENDERING ===== */
 function render() {
-  // Root path
   const rp = document.getElementById('root-path');
   rp.textContent = data.root;
   rp.title = data.root;
 
-  // Stats
   const total = data.folders.reduce((s,f) => s + f.token_budget, 0);
   const avg = data.folders.length ? Math.round(total / data.folders.length) : 0;
   const roles = new Set(data.folders.map(f => f.role)).size;
@@ -749,7 +730,6 @@ function render() {
   setStatAnimated('s-avg', avg);
   document.getElementById('folder-count').textContent = data.folders.length;
 
-  // Folder list
   const list = document.getElementById('folder-list');
   list.innerHTML = data.folders.map((f, i) =>
     '<div class="folder-item' + (i === 0 ? ' active' : '') + '" ' +
@@ -767,15 +747,11 @@ function render() {
     '</div></div></div></div>'
   ).join('');
 
-  // Keyboard nav on folder items
   list.querySelectorAll('.folder-item').forEach(el => {
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
   });
 
-  // Health overview
   renderHealth();
-
-  // Select first folder without toggling sidebar on mobile
   if (data.folders.length > 0) selectFolder(0, true);
 }
 
@@ -810,7 +786,6 @@ function renderHealth() {
   }).join('');
 }
 
-/* ===== FOLDER SELECTION ===== */
 function selectFolder(i, initial) {
   selected = i;
   document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
@@ -825,11 +800,10 @@ function selectFolder(i, initial) {
 
   document.getElementById('detail-name').textContent = f.name;
 
-  // Detail cards
   const fields = [
     { label:'Role', val:f.role },
     { label:'Depth', val:f.depth || 'default' },
-    { label:'Purpose', val:f.purpose || 'No purpose set', full:true },
+    { label:'Purpose', val:f.purpose || 'Not set', full:true },
     { label:'Path', val:f.path, full:true },
   ];
   document.getElementById('detail-grid').innerHTML = fields.map(fld =>
@@ -838,96 +812,60 @@ function selectFolder(i, initial) {
     '<div class="detail-value">' + escHtml(String(fld.val)) + '</div></div>'
   ).join('');
 
-  // Budget bars
+  const bsec = document.getElementById('budget-section');
   const maxBudget = 50000;
-  const maxFiles = 10000;
-  const budgetPct = Math.min(100, f.token_budget / maxBudget * 100);
-  const filePct = Math.min(100, f.file_limit / maxFiles * 100);
-  const budgetClass = budgetPct > 70 ? 'high' : budgetPct > 40 ? 'warn' : '';
-  document.getElementById('budget-section').innerHTML =
-    '<div style="margin-top:12px">' +
-    '<div class="budget-row">' +
-    '<span class="budget-label">Token Budget</span>' +
-    '<div class="budget-bar-wrap"><div class="budget-bar ' + budgetClass + '" style="width:' + budgetPct + '%"></div></div>' +
+  const bPct = Math.min(100, Math.round(f.token_budget / maxBudget * 100));
+  const fPct = f.file_limit ? Math.min(100, Math.round(f.file_count / f.file_limit * 100)) : 0;
+  bsec.innerHTML =
+    '<div class="budget-row"><span class="budget-label">Token Budget</span>' +
+    '<div class="budget-bar-wrap"><div class="budget-bar' + (bPct > 70 ? ' warn' : '') + (bPct > 90 ? ' high' : '') + '" style="width:' + bPct + '%"></div></div>' +
     '<span class="budget-val">' + f.token_budget.toLocaleString() + '</span></div>' +
-    '<div class="budget-row">' +
-    '<span class="budget-label">File Limit</span>' +
-    '<div class="budget-bar-wrap"><div class="budget-bar" style="width:' + filePct + '%"></div></div>' +
-    '<span class="budget-val">' + f.file_limit.toLocaleString() + '</span></div></div>';
+    '<div class="budget-row"><span class="budget-label">File Count</span>' +
+    '<div class="budget-bar-wrap"><div class="budget-bar' + (fPct > 70 ? ' warn' : '') + (fPct > 90 ? ' high' : '') + '" style="width:' + fPct + '%"></div></div>' +
+    '<span class="budget-val">' + f.file_count + ' / ' + f.file_limit + '</span></div>';
 
-  // Connections
-  renderConnections(f);
+  const conns = document.getElementById('connections');
+  const c = f.connections || {};
+  let connHtml = '';
+  if (c.parent) connHtml += '<div class="conn-row"><span class="conn-arrow parent">P</span><span class="conn-name">' + escHtml(c.parent) + '</span><span class="conn-type">parent</span></div>';
+  (c.children || []).forEach(ch => { connHtml += '<div class="conn-row"><span class="conn-arrow out">C</span><span class="conn-name">' + escHtml(ch) + '</span><span class="conn-type">child</span></div>'; });
+  (c.feeds_into || []).forEach(fd => { connHtml += '<div class="conn-row"><span class="conn-arrow out">→</span><span class="conn-name">' + escHtml(fd) + '</span><span class="conn-type">feeds into</span></div>'; });
+  (c.receives_from || []).forEach(rf => { connHtml += '<div class="conn-row"><span class="conn-arrow in">←</span><span class="conn-name">' + escHtml(rf) + '</span><span class="conn-type">receives from</span></div>'; });
+  conns.innerHTML = connHtml || '<div class="empty-state">No connections defined</div>';
 }
 
-function renderConnections(f) {
-  const el = document.getElementById('connections');
-  const conns = f.connections || {};
-  const rows = [];
-
-  if (conns.parent) {
-    rows.push({ arrow:'parent', symbol:'\u2191', name:conns.parent, type:'parent' });
-  }
-  (conns.children || []).forEach(c => rows.push({ arrow:'out', symbol:'\u2193', name:c, type:'child' }));
-  (conns.feeds_into || []).forEach(c => rows.push({ arrow:'out', symbol:'\u2192', name:c, type:'feeds into' }));
-  (conns.receives_from || []).forEach(c => rows.push({ arrow:'in', symbol:'\u2190', name:c, type:'receives from' }));
-  (conns.siblings || []).forEach(c => rows.push({ arrow:'in', symbol:'\u2194', name:c, type:'sibling' }));
-
-  if (!rows.length) {
-    el.innerHTML = '<span class="empty-state">No connections defined in settings.json</span>';
-    return;
-  }
-
-  el.innerHTML = rows.map(r =>
-    '<div class="conn-row">' +
-    '<span class="conn-arrow ' + r.arrow + '">' + r.symbol + '</span>' +
-    '<span class="conn-name">' + escHtml(r.name) + '</span>' +
-    '<span class="conn-type">' + r.type + '</span></div>'
-  ).join('');
-}
-
-/* ===== ACTIONS ===== */
 async function runScript(action) {
   const btn = document.getElementById('btn-' + action);
   const out = document.getElementById('output');
-  const outText = document.getElementById('output-text');
-  out.style.display = 'block';
-  outText.textContent = 'Running ' + action + '...';
-
-  // Show spinner on button
-  const iconEl = btn.querySelector('.action-icon');
-  const origIcon = iconEl.innerHTML;
-  iconEl.innerHTML = '<div class="action-spinner"></div>';
+  const txt = document.getElementById('output-text');
   btn.classList.add('running');
+  btn.innerHTML = '<div class="action-spinner"></div>';
+  out.style.display = 'block';
+  txt.textContent = 'Running ' + action + '...';
 
   try {
-    const res = await fetch('/api/' + action, { method:'POST' });
-    const d = await res.json();
-    outText.textContent = d.output || d.error || 'No output';
+    const res = await fetch('/api/' + action);
+    const data = await res.json();
+    txt.textContent = data.output || data.error || 'Done.';
   } catch(e) {
-    outText.textContent = 'Error: ' + e.message;
+    txt.textContent = 'Error: ' + e.message;
   }
 
-  iconEl.innerHTML = origIcon;
-  btn.classList.remove('running');
+  const icons = { validate:'gi', audit:'bi', map:'pi' };
+  btn.innerHTML = '<div class="action-icon ' + (icons[action] || 'gi') + '">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+    '<span class="action-name">' + action.charAt(0).toUpperCase() + action.slice(1) + '</span>' +
+    '<span class="action-desc">Complete</span>';
+  setTimeout(() => { btn.classList.remove('running'); btn.innerHTML = btn.innerHTML.replace('Complete', action === 'validate' ? 'Check structure' : action === 'audit' ? 'Analyze usage' : 'View tree'); }, 3000);
 }
 
 function closeOutput() {
   document.getElementById('output').style.display = 'none';
 }
 
-/* ===== UTILITIES ===== */
-function setStatAnimated(id, val) {
-  const el = document.getElementById(id);
-  el.textContent = val.toLocaleString();
-}
+function setStatAnimated(id, val) { document.getElementById(id).textContent = val.toLocaleString(); }
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-function escHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-/* ===== INIT ===== */
 load();
 </script>
 </body>
@@ -936,17 +874,13 @@ load();
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        from urllib.parse import urlparse
         path = urlparse(self.path).path
         if path in ("/", "/index.html"):
             self._respond(200, "text/html", HTML.encode())
         elif path == "/api/data":
             self._respond(200, "application/json", json.dumps(self._folder_data()).encode())
-        else:
-            self._respond(404, "text/plain", b"Not found")
-
-    def do_POST(self):
-        path = urlparse(self.path).path
-        if path.startswith("/api/"):
+        elif path.startswith("/api/"):
             action = path[5:]
             self._respond(200, "application/json", json.dumps(self._run(action)).encode())
         else:
@@ -959,54 +893,64 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _run(self, action: str) -> dict:
-        script_map = {
-            "validate": ["python", str(SCRIPTS_DIR / "validate.py"), "--recursive", str(self.server.root)],
-            "audit":    ["python", str(SCRIPTS_DIR / "audit.py"),    str(self.server.root)],
-            "map":      ["python", str(SCRIPTS_DIR / "map.py"),      str(self.server.root), "--stats", "--connections"],
-        }
-        cmd = script_map.get(action)
-        if not cmd:
-            return {"error": f"Unknown action: {action}"}
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            return {"output": result.stdout + (("\n" + result.stderr) if result.stderr else "")}
-        except subprocess.TimeoutExpired:
-            return {"error": "Script timed out"}
-        except Exception as e:
-            return {"error": str(e)}
-
     def _folder_data(self) -> dict:
         root = self.server.root
-        folders = []
-        for sm in sorted(root.rglob("smart-folder.md")):
-            folder = sm.parent
-            settings = {}
-            sf = folder / "settings.json"
-            if sf.exists():
-                try:
-                    settings = json.loads(sf.read_text())
-                except Exception:
-                    pass
-            fd = settings.get("folder", {})
-            bd = settings.get("boundaries", {})
-            conns = settings.get("connections", {})
-            rel = str(folder.relative_to(root)) if folder != root else "."
-            folders.append({
-                "path":         rel,
-                "name":         folder.name if folder != root else "(root)",
-                "role":         fd.get("role", "Custom"),
-                "purpose":      fd.get("purpose", ""),
-                "depth":        fd.get("depth", ""),
-                "token_budget": bd.get("token_budget", 8000),
-                "file_limit":   bd.get("file_limit", 500),
-                "connections":  conns,
-                "has_smart":    sm.exists(),
-                "has_settings": sf.exists(),
-                "has_ignore":   (folder / ".smartignore").exists(),
-                "has_laws":     (folder / "laws").exists(),
+        folders = scan(root)
+        result = []
+        for f in folders:
+            result.append({
+                "path":         f.relative_path,
+                "name":         f.name,
+                "role":         f.role,
+                "purpose":      f.purpose,
+                "depth":        str(f.depth),
+                "token_budget": f.token_budget,
+                "file_limit":   f.file_limit,
+                "file_count":   f.file_count,
+                "connections":  f.connections,
+                "has_smart":    True,
+                "has_settings": f.has_settings,
+                "has_ignore":   f.has_ignore,
+                "has_laws":     f.has_laws,
             })
-        return {"root": str(root), "folders": folders}
+        return {"root": str(root), "folders": result}
+
+    def _run(self, action: str) -> dict:
+        root = self.server.root
+        try:
+            if action == "validate":
+                folders = [p.parent for p in sorted(root.rglob("smart-folder.md"))]
+                output_lines = []
+                all_passed = True
+                for folder in folders:
+                    errors, warnings = validate_folder(folder)
+                    prefix = str(folder)
+                    output_lines.append(f"\n{prefix}")
+                    output_lines.append("-" * min(60, len(prefix) + 2))
+                    if errors:
+                        for e in errors:
+                            output_lines.append(f"  ERROR   {e}")
+                    if warnings:
+                        for w in warnings:
+                            output_lines.append(f"  WARN    {w}")
+                    if not errors and not warnings:
+                        output_lines.append("  OK      All checks passed")
+                    if errors:
+                        all_passed = False
+                output_lines.append("")
+                output_lines.append("Result: PASS" if all_passed else "Result: FAIL")
+                return {"output": "\n".join(output_lines)}
+            elif action == "audit":
+                results = audit_all(root)
+                return {"output": print_audit(results)}
+            elif action == "map":
+                folders = build_map(root)
+                parts = [render_tree(folders, root), render_stats(folders), render_connections(folders)]
+                return {"output": "\n".join(parts)}
+            else:
+                return {"error": f"Unknown action: {action}"}
+        except Exception as e:
+            return {"error": str(e)}
 
     def log_message(self, *_):
         pass

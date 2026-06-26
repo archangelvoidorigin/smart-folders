@@ -11,11 +11,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import subprocess
 import sys
-from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from smartfolders.templates import create_folder_structure
 
 ROLES = {
     "1": ("Knowledge Keeper", "Stores and organizes information"),
@@ -34,8 +34,6 @@ DEPTHS = {
     "2": ("medium",  "3–4 levels, standard projects"),
     "3": ("deep",    "5+ levels, complex systems"),
 }
-
-TODAY = date.today().isoformat()
 
 
 def ask(prompt: str, default: str = None) -> str:
@@ -70,185 +68,6 @@ def ask_agents() -> list:
     return [a.strip() for a in val.split(",") if a.strip()]
 
 
-def create(name: str, role: str, depth: str, purpose: str, agents: list) -> bool:
-    folder = Path(name)
-
-    if folder.exists():
-        confirm = input(f"\nFolder '{name}' already exists. Overwrite? [y/N]: ").strip().lower()
-        if confirm != "y":
-            print("Cancelled.")
-            return False
-
-    print(f"\nCreating: {name}/")
-    folder.mkdir(parents=True, exist_ok=True)
-
-    # smart-folder.md
-    (folder / "smart-folder.md").write_text(f"""# Smart Folder: {name}
-
-## Purpose
-{purpose}
-
-## Role
-- **Name**: {role}
-- **Description**: [What this folder's function is in the system]
-- **Level**: 0
-- **Depth**: {depth}
-
-## Scope
-**CAN do**:
-- [What agents are allowed to do here]
-
-**CANNOT do**:
-- [What agents must never do here]
-
-## Boundaries
-- **CAN see**: ["*.md", "*.json", "*.py", "*.js"]
-- **CANNOT see**: ["*.log", "node_modules/", ".cache/", "*.tmp"]
-- **Token budget**: 8000
-- **File limit**: 500
-
-## Instructions
-[Step-by-step guidance for working in this folder]
-
-## Context
-- **Parent folder**: [relative path to parent or "root"]
-- **Child folders**: [list sub-folders with purpose]
-- **Related folders**: [other folders this depends on]
-
-## Connections
-- **Feeds into**: []
-- **Receives from**: []
-
-## Laws
-- [ ] Never: [absolute prohibitions]
-- [ ] Always: [absolute requirements]
-
-## Metadata
-- **Created**: {TODAY}
-- **Author**: [your name]
-- **Version**: 1
-""")
-    print("  [ok] smart-folder.md")
-
-    # settings.json
-    (folder / "settings.json").write_text(json.dumps({
-        "folder": {
-            "name": name, "role": role, "sub_role": None,
-            "level": 0, "depth": depth, "purpose": purpose
-        },
-        "boundaries": {
-            "can_see": ["*.md", "*.json", "*.py", "*.js", "*.ts"],
-            "cannot_see": ["*.log", "node_modules/", ".cache/", "*.tmp", ".git/"],
-            "token_budget": 8000, "file_limit": 500, "depth_limit": 5
-        },
-        "connections": {
-            "parent": None, "children": [], "siblings": [],
-            "tools": ["search", "summarize"], "feeds_into": [], "receives_from": []
-        },
-        "agents": {"allowed": agents, "preferred": "claude", "restricted": []},
-        "metadata": {
-            "created": TODAY, "author": "[your name]",
-            "last_modified": TODAY, "quality_score": 1.0, "version": 1
-        }
-    }, indent=2))
-    print("  [ok] settings.json")
-
-    # .smartignore
-    (folder / ".smartignore").write_text("""# .smartignore — Cognitive Boundaries
-*.log
-*.tmp
-*.temp
-*.cache
-.cache/
-node_modules/
-vendor/
-dist/
-build/
-*.lock
-.git/
-.env
-.env.*
-*.secret
-*.key
-credentials/
-secrets/
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-*.zip
-*.tar
-*.gz
-""")
-    print("  [ok] .smartignore")
-
-    # laws/
-    laws = folder / "laws"
-    laws.mkdir(exist_ok=True)
-    (laws / "never-rules.md").write_text("""# Never Rules
-- Never delete smart-folder.md, settings.json, or laws/
-- Never access files in .smartignore or settings.json cannot_see
-- Never exceed the token_budget
-- Never create files outside this folder's purpose
-- Never fabricate content, paths, or API signatures
-""")
-    (laws / "always-rules.md").write_text("""# Always Rules
-- Always read smart-folder.md before doing any work
-- Always check settings.json for boundaries
-- Always read laws/ before making changes
-- Always document significant changes
-- Always ask for clarification rather than guessing
-""")
-    print("  [ok] laws/")
-
-    # Sub-folders
-    subs = {"deep": 3, "medium": 2, "shallow": 0}.get(depth, 0)
-    for i in range(1, subs + 1):
-        sub = folder / f"sub-folder-{i}"
-        sub.mkdir(exist_ok=True)
-        (sub / "smart-folder.md").write_text(f"""# Smart Folder: sub-folder-{i}
-
-## Purpose
-[Sub-folder purpose]
-
-## Role
-- **Name**: [Inherited from parent: {role}]
-- **Sub-role**: [Specific to this sub-folder]
-
-## Scope
-[What this sub-folder does]
-
-## Instructions
-[Specific instructions]
-
-## Context
-- **Parent**: ../smart-folder.md
-""")
-        print(f"  [ok] sub-folder-{i}/")
-
-    # chronicles/
-    chron = folder / "chronicles"
-    chron.mkdir(exist_ok=True)
-    (chron / "README.md").write_text("""# Chronicles
-
-Document everything significant:
-
-```
-[Session YYYY-MM-DD]
-What happened:
-Why it matters:
-What was learned:
-What changed:
-```
-""")
-    print("  [ok] chronicles/")
-
-    print(f"\nDone. Smart Folder created at: {folder.resolve()}")
-    print(f"\nNext: python scripts/validate.py {folder}/")
-    return True
-
-
 def interactive():
     print("\nSmart Folder Creator")
     print("=" * 40)
@@ -269,7 +88,9 @@ def interactive():
     print(f"  agents  : {', '.join(agents)}")
 
     if input("\nCreate? [Y/n]: ").strip().lower() in ("", "y", "yes"):
-        create(name, role, depth, purpose, agents)
+        target = create_folder_structure(name, role, depth, purpose, agents=agents)
+        print(f"\nDone. Smart Folder created at: {target}")
+        print(f"\nNext: python scripts/validate.py {target}/")
     else:
         print("Cancelled.")
 
@@ -284,7 +105,9 @@ def main():
     args = parser.parse_args()
 
     if args.name:
-        create(args.name, args.role, args.depth, args.purpose, args.agents.split(","))
+        target = create_folder_structure(args.name, args.role, args.depth, args.purpose, agents=args.agents.split(","))
+        print(f"Smart Folder created at: {target}")
+        print(f"  python scripts/validate.py {target}/")
     else:
         interactive()
 
