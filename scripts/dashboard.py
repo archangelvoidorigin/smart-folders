@@ -22,6 +22,7 @@ from smartfolders.core import scan
 from smartfolders.ops import validate_folder, audit_all, print_audit, build_map, render_tree, render_stats, render_connections
 
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
+CONTROL_OS_DIR = Path(__file__).resolve().parent.parent / "control-os" / "dist"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -30,29 +31,217 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/folders":
             self._respond(200, "application/json", json.dumps(self._folder_data()).encode())
+        elif path == "/api/graph":
+            self._respond(200, "application/json", json.dumps(self._graph_data()).encode())
+        elif path == "/api/stats":
+            self._respond(200, "application/json", json.dumps(self._stats_data()).encode())
+        elif path.startswith("/api/folders/"):
+            self._handle_folder_path(path)
         elif path.startswith("/api/"):
             action = path[5:]
             self._respond(200, "application/json", json.dumps(self._run(action)).encode())
         else:
             self._serve_static(path)
 
-    def _serve_static(self, path: str):
-        if path in ("/", "/index.html"):
-            file_path = DASHBOARD_DIR / "index.html"
-        else:
-            cleaned = path.lstrip("/")
-            file_path = DASHBOARD_DIR / cleaned
-            if not file_path.resolve().absolute().parts > DASHBOARD_DIR.resolve().absolute().parts:
-                pass
-            if not str(file_path.resolve()).startswith(str(DASHBOARD_DIR.resolve())):
-                self._respond(403, "text/plain", b"Forbidden")
-                return
+    def _handle_folder_path(self, path: str):
+        rest = path[len("/api/folders/"):]
+        known_resources = {"settings", "smart-folder", "smartignore", "laws"}
 
+        parts = rest.split("/")
+        resource = None
+        sub = None
+        folder_path_str = rest
+
+        for i, part in enumerate(parts):
+            if part in known_resources:
+                folder_path_str = "/".join(parts[:i])
+                resource = part
+                sub = "/".join(parts[i + 1:]) if i + 1 < len(parts) else None
+                break
+
+        root = self.server.root
+        abs_folder = (root / folder_path_str).resolve()
+
+        if not str(abs_folder).startswith(str(root.resolve())) or not abs_folder.exists():
+            self._respond(404, "text/plain", b"Folder not found")
+            return
+
+        if resource is None:
+            folder = self._find_folder(folder_path_str)
+            if folder:
+                self._respond(200, "application/json", json.dumps(folder).encode())
+            else:
+                self._respond(404, "text/plain", b"Folder not found")
+            return
+
+        if resource == "settings":
+            file_path = abs_folder / "settings.json"
+            self._serve_raw_file(file_path)
+        elif resource == "smart-folder":
+            file_path = abs_folder / "smart-folder.md"
+            self._serve_raw_file(file_path)
+        elif resource == "smartignore":
+            file_path = abs_folder / ".smartignore"
+            self._serve_raw_file(file_path)
+        elif resource == "laws":
+            laws_dir = abs_folder / "laws"
+            if sub:
+                law_file = laws_dir / sub
+                if not str(law_file.resolve()).startswith(str(laws_dir.resolve())):
+                    self._respond(403, "text/plain", b"Forbidden")
+                    return
+                self._serve_raw_file(law_file)
+            else:
+                self._list_law_files(laws_dir)
+
+    def _serve_raw_file(self, file_path: Path):
         if file_path.is_file():
             ctype = self._content_type(file_path)
             self._respond(200, ctype, file_path.read_bytes())
         else:
             self._respond(404, "text/plain", b"Not found")
+
+    def _list_law_files(self, laws_dir: Path):
+        if laws_dir.is_dir():
+            files = [f.name for f in sorted(laws_dir.iterdir()) if f.is_file()]
+            self._respond(200, "application/json", json.dumps({"files": files}).encode())
+        else:
+            self._respond(200, "application/json", json.dumps({"files": []}).encode())
+
+    def _find_folder(self, folder_path: str) -> dict | None:
+        root = self.server.root
+        for f in scan(root):
+            if f.relative_path == folder_path:
+                return {
+                    "path":         f.relative_path,
+                    "name":         f.name,
+                    "role":         f.role,
+                    "purpose":      f.purpose,
+                    "depth":        str(f.depth),
+                    "token_budget": f.token_budget,
+                    "file_limit":   f.file_limit,
+                    "file_count":   f.file_count,
+                    "connections":  f.connections,
+                    "has_smart":    True,
+                    "has_settings": f.has_settings,
+                    "has_ignore":   f.has_ignore,
+                    "has_laws":     f.has_laws,
+                }
+        return None
+
+    def _graph_data(self) -> dict:
+        root = self.server.root
+        folders = scan(root)
+        nodes = []
+        edges = []
+
+        for f in folders:
+            nodes.append({
+                "id": f.relative_path,
+                "label": f.name,
+                "role": f.role,
+                "depth": f.depth,
+                "token_budget": f.token_budget,
+                "file_count": f.file_count,
+                "has_settings": f.has_settings,
+                "has_smartignore": f.has_ignore,
+                "has_laws": f.has_laws,
+                "purpose": f.purpose or "",
+            })
+
+        for f in folders:
+            c = f.connections or {}
+            source = f.relative_path
+            if c.get("parent"):
+                edges.append({
+                    "id": f"{c['parent']}->{source}",
+                    "source": c["parent"],
+                    "target": source,
+                    "type": "parent",
+                    "label": "parent",
+                })
+            for child in c.get("children") or []:
+                edges.append({
+                    "id": f"{source}->{child}",
+                    "source": source,
+                    "target": child,
+                    "type": "child",
+                    "label": "child",
+                })
+            for target in c.get("feeds_into") or []:
+                edges.append({
+                    "id": f"{source}->{target}",
+                    "source": source,
+                    "target": target,
+                    "type": "feeds_into",
+                    "label": "feeds into",
+                })
+            for target in c.get("receives_from") or []:
+                edges.append({
+                    "id": f"{target}->{source}",
+                    "source": target,
+                    "target": source,
+                    "type": "receives_from",
+                    "label": "receives from",
+                })
+
+        return {"nodes": nodes, "edges": edges}
+
+    def _stats_data(self) -> dict:
+        root = self.server.root
+        folders = scan(root)
+        total = len(folders)
+        if not total:
+            return {"folders": 0, "total_budget": 0, "avg_budget": 0, "avg_files": 0, "roles": {}}
+
+        total_budget = sum(f.token_budget for f in folders)
+        total_files = sum(f.file_count for f in folders)
+        roles = {}
+        for f in folders:
+            roles[f.role] = roles.get(f.role, 0) + 1
+
+        return {
+            "folders": total,
+            "total_budget": total_budget,
+            "avg_budget": round(total_budget / total) if total else 0,
+            "avg_files": round(total_files / total, 1) if total else 0,
+            "roles": roles,
+            "has_settings": sum(1 for f in folders if f.has_settings),
+            "has_ignore": sum(1 for f in folders if f.has_ignore),
+            "has_laws": sum(1 for f in folders if f.has_laws),
+        }
+
+    def _serve_static(self, path: str):
+        file_path = self._resolve_static_path(path)
+        if file_path and file_path.is_file():
+            ctype = self._content_type(file_path)
+            self._respond(200, ctype, file_path.read_bytes())
+        else:
+            self._respond(404, "text/plain", b"Not found")
+
+    def _resolve_static_path(self, path: str) -> Path | None:
+        if path in ("/", "/index.html"):
+            control_os_index = CONTROL_OS_DIR / "index.html"
+            if CONTROL_OS_DIR.is_dir() and control_os_index.is_file():
+                return control_os_index
+            return DASHBOARD_DIR / "index.html"
+
+        cleaned = path.lstrip("/")
+        for base in (CONTROL_OS_DIR, DASHBOARD_DIR):
+            if not base.is_dir():
+                continue
+            candidate = (base / cleaned).resolve()
+            if str(candidate).startswith(str(base.resolve())) and candidate.is_file():
+                return candidate
+
+        if CONTROL_OS_DIR.is_dir():
+            candidate = (CONTROL_OS_DIR / cleaned).resolve()
+            if str(candidate).startswith(str(CONTROL_OS_DIR.resolve())) and not candidate.exists() and not candidate.suffix:
+                index = CONTROL_OS_DIR / "index.html"
+                if index.is_file():
+                    return index
+
+        return None
 
     def _content_type(self, path: Path) -> str:
         ext = path.suffix.lower()
@@ -64,6 +253,7 @@ class Handler(BaseHTTPRequestHandler):
             ".png": "image/png",
             ".svg": "image/svg+xml",
             ".ico": "image/x-icon",
+            ".md": "text/markdown",
         }.get(ext, "application/octet-stream")
 
     def _respond(self, code, ctype, body):

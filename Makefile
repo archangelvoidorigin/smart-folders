@@ -55,6 +55,13 @@ clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 control-os:
-	@echo "Control OS is an optional power-up (Vite + Cytoscape)."
-	@echo "To build: cd control-os && npm install && npm run build"
-	@echo "Control OS is NOT required. The Lite dashboard works with zero deps."
+	cd control-os && npm install && npm run build
+	@echo ""
+	@echo "Control OS built. Serve it with the dashboard:"
+	@echo "  make dashboard   (auto-detects control-os/dist/)"
+
+control-os-dev:
+	@echo "Start the dashboard API server in another terminal first:"
+	@echo "  python scripts/dashboard.py"
+	@echo ""
+	cd control-os && npm run dev
