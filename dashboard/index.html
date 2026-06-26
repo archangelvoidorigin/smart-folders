@@ -674,6 +674,7 @@ a.skip-link:focus { top:0; }
           <button class="btn-save" id="btn-editor-save" disabled onclick="saveEditor()">Save</button>
           <button class="btn-discard" onclick="discardEdits()">Discard</button>
           <button class="btn-limbo" id="btn-move-limbo" onclick="moveToLimbo()">Move to Limbo</button>
+          <button class="btn-validate" id="btn-validate-editor" style="display:none;padding:6px 16px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;font-family:var(--font);border:1px solid transparent;background:rgba(59,130,246,.12);color:#60A5FA;border-color:rgba(59,130,246,.2);" onclick="validateSettings()">Validate</button>
           <span class="editor-status" id="editor-status"></span>
         </div>
       </div>
@@ -1061,6 +1062,9 @@ function switchEditorTab(idx) {
     return;
   }
 
+  const validateBtn = document.getElementById('btn-validate-editor');
+  validateBtn.style.display = key === 'settings.json' ? '' : 'none';
+
   let html = '';
   if (key === '__laws__') {
     const laws = f.laws;
@@ -1078,6 +1082,9 @@ function switchEditorTab(idx) {
       (key === 'settings.json' ? 'data-json="1" ' : '') +
       'oninput="markEdited(\'' + key + '\')">' +
       escHtml(content.content || '') + '</textarea>';
+    if (key === 'settings.json') {
+      html += '<div id="validation-errors" style="margin-top:6px;font-size:11px;color:#F87171;display:none"></div>';
+    }
   }
 
   filesEl.innerHTML = html;
@@ -1093,6 +1100,35 @@ function markLawEdited(idx) {
   editorState.modified['__laws__'] = true;
   document.getElementById('btn-editor-save').disabled = false;
   editorStatus('Unsaved changes', '');
+}
+
+async function validateSettings() {
+  const ta = document.getElementById('editor-textarea');
+  if (!ta) return;
+  const errDiv = document.getElementById('validation-errors');
+  editorStatus('Validating...', '');
+  try {
+    const data = JSON.parse(ta.value);
+    const res = await fetch('/api/validate-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (result.valid) {
+      editorStatus('Schema valid', 'ok');
+      if (errDiv) { errDiv.style.display = 'none'; }
+    } else {
+      if (errDiv) {
+        errDiv.style.display = 'block';
+        errDiv.innerHTML = '<strong>Schema errors:</strong><ul style="margin:4px 0 0 16px;padding:0">' +
+          result.errors.map(e => '<li>' + escHtml(e) + '</li>').join('') + '</ul>';
+      }
+      editorStatus(result.errors.length + ' validation error(s)', 'err');
+    }
+  } catch(e) {
+    editorStatus('Invalid JSON: ' + e.message, 'err');
+  }
 }
 
 async function saveEditor() {
@@ -1138,6 +1174,17 @@ async function saveEditor() {
     if (key === 'settings.json') {
       try { payload = JSON.parse(ta.value); } catch(e) {
         allOk = false; editorStatus('Invalid JSON', 'err'); break;
+      }
+      const valRes = await fetch('/api/validate-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify(payload),
+      });
+      const valData = await valRes.json();
+      if (!valData.valid) {
+        allOk = false;
+        editorStatus('Schema: ' + valData.errors.join('; '), 'err');
+        break;
       }
     } else {
       payload = { content: ta.value };

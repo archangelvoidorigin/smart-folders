@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from smartfolders.core import scan
 from smartfolders.ops import validate_folder, audit_all, print_audit, build_map, render_tree, render_stats, render_connections
+from smartfolders.schema import validate_settings
 
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 CONTROL_OS_DIR = Path(__file__).resolve().parent.parent / "control-os" / "dist"
@@ -73,7 +74,11 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             if resource == "settings":
-                json.loads(content)
+                settings_data = json.loads(content)
+                schema_errors = validate_settings(settings_data)
+                if schema_errors:
+                    self._respond(422, "application/json", json.dumps({"error": "Schema validation failed", "details": schema_errors}).encode())
+                    return
                 target = abs_folder / "settings.json"
             elif resource == "smart-folder":
                 target = abs_folder / "smart-folder.md"
@@ -108,6 +113,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_create_folder()
         elif path.startswith("/api/folders/") and path.endswith("/move-to-limbo"):
             self._handle_move_to_limbo(path)
+        elif path == "/api/validate-settings":
+            self._handle_validate_settings()
         else:
             self._respond(400, "application/json", json.dumps({"error": "Unknown POST endpoint"}).encode())
             return
@@ -151,6 +158,19 @@ class Handler(BaseHTTPRequestHandler):
                 sub = "/".join(parts[i + 1:]) if i + 1 < len(parts) else None
                 return folder_path, part, sub
         return rest, None, None
+
+    def _handle_validate_settings(self):
+        body = self._read_body()
+        if body is None:
+            return
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self._respond(400, "application/json", json.dumps({"error": "Invalid JSON"}).encode())
+            return
+        from smartfolders.schema import validate_settings
+        errors = validate_settings(data)
+        self._respond(200, "application/json", json.dumps({"valid": len(errors) == 0, "errors": errors}).encode())
 
     def _handle_folder_read(self, path: str):
         rest = path[len("/api/folders/"):]
@@ -223,7 +243,7 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             from smartfolders.templates import create_folder_structure
-            create_folder_structure(folder_path, name, role, purpose)
+            create_folder_structure(name, role, "medium", purpose, output_dir=root)
             self._respond(201, "application/json", json.dumps({"ok": True, "path": name}).encode())
         except Exception as e:
             self._respond(500, "application/json", json.dumps({"error": str(e)}).encode())
