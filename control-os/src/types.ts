@@ -32,6 +32,8 @@ export interface GraphNode {
   has_smartignore: boolean;
   has_laws: boolean;
   purpose: string;
+  efficiency: number;
+  token_usage_pct: number;
 }
 
 export interface GraphEdge {

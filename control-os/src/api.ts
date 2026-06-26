@@ -23,3 +23,18 @@ export async function fetchFile(path: string, resource: string): Promise<string 
   if (!res.ok) return null;
   return res.text();
 }
+
+// New: cross-folder search
+export async function searchFolders(term: string): Promise<Folder[]> {
+  const encoded = encodeURIComponent(term);
+  const res = await fetch(`${BASE}/search/${encoded}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+// New: poll for changes / auto‑refresh
+export async function pollVersion(): Promise<{timestamp: number}> {
+  const res = await fetch(`${BASE}/poll`);
+  if (!res.ok) return {timestamp: 0};
+  return res.json();
+}

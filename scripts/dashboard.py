@@ -38,8 +38,20 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps(self._folder_data()).encode())
         elif path == "/api/graph":
             self._respond(200, "application/json", json.dumps(self._graph_data()).encode())
-        elif path == "/api/stats":
+        el        if path == "/api/stats":
             self._respond(200, "application/json", json.dumps(self._stats_data()).encode())
+        elif path.startswith("/api/search/"):
+            term = path[len("/api/search/"):]
+            # Decode URL-encoded term
+            try:
+                from urllib.parse import unquote
+                term = unquote(term)
+            except Exception:
+                pass
+            self._respond(200, "application/json", json.dumps(self._search(term)).encode())
+        elif path == "/api/poll":
+            import time
+            self._respond(200, "application/json", json.dumps({"timestamp": time.time()}).encode())
         elif path.startswith("/api/folders/"):
             self._handle_folder_read(path)
         elif path.startswith("/api/"):
@@ -322,9 +334,17 @@ class Handler(BaseHTTPRequestHandler):
     def _graph_data(self) -> dict:
         root = self.server.root
         folders = scan(root)
+        # Pre-compute max token budget for heatmap calculation
+        max_budget = max((f.token_budget for f in folders), default=1)
+        # Pre-compute efficiency per folder via audit_all
+        audit_map = {entry["path"]: entry.get("efficiency", 0) for entry in audit_all(root)}
         nodes = []
         edges = []
         for f in folders:
+            # Compute token usage percentage for heatmap layer
++            token_pct = round((f.token_budget / max_budget) * 100, 2) if max_budget else 0
++            # Retrieve efficiency from audit map (fallback to 0)
++            efficiency = audit_map.get(str(f.path), 0)
             nodes.append({
                 "id": f.relative_path,
                 "label": f.name,
@@ -336,6 +356,8 @@ class Handler(BaseHTTPRequestHandler):
                 "has_smartignore": f.has_ignore,
                 "has_laws": f.has_laws,
                 "purpose": f.purpose or "",
++                "efficiency": efficiency,
++                "token_usage_pct": token_pct,
             })
         for f in folders:
             c = f.connections or {}
@@ -349,7 +371,6 @@ class Handler(BaseHTTPRequestHandler):
             for target in c.get("receives_from") or []:
                 edges.append({"id": f"{target}->{source}", "source": target, "target": source, "type": "receives_from", "label": "receives from"})
         return {"nodes": nodes, "edges": edges}
-
     def _stats_data(self) -> dict:
         root = self.server.root
         folders = scan(root)
@@ -490,6 +511,29 @@ class Handler(BaseHTTPRequestHandler):
                 return {"error": f"Unknown action: {action}"}
         except Exception as e:
             return {"error": str(e)}
+
+    def _search(self, term: str) -> list[dict]:
+        root = self.server.root
+        term_lower = term.lower()
+        results = []
+        for f in scan(root):
+            if term_lower in f.name.lower() or term_lower in f.role.lower() or term_lower in (f.purpose or "").lower():
+                results.append({
+                    "path": f.relative_path,
+                    "name": f.name,
+                    "role": f.role,
+                    "purpose": f.purpose,
+                    "depth": str(f.depth),
+                    "token_budget": f.token_budget,
+                    "file_limit": f.file_limit,
+                    "file_count": f.file_count,
+                    "connections": f.connections,
+                    "has_smart": True,
+                    "has_settings": f.has_settings,
+                    "has_ignore": f.has_ignore,
+                    "has_laws": f.has_laws,
+                })
+        return results
 
     def log_message(self, *_):
         pass
