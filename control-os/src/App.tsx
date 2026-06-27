@@ -150,14 +150,20 @@ export default function App() {
         },
       ],
       layout: { name: 'cose', fit: true, padding: 40 },
-      elements: [
-        ...graph.nodes.map((n) => ({
-          data: { id: n.id, label: n.label, role: n.role, depth: n.depth, token_budget: n.token_budget, purpose: n.purpose },
-        })),
-        ...graph.edges.map((e) => ({
-          data: { id: e.id, source: e.source, target: e.target, type: e.type, label: e.label },
-        })),
-      ],
+      elements: (() => {
+        const nodeIds = new Set(graph.nodes.map((n) => n.id));
+        // Cytoscape throws on an edge with a missing endpoint, which would blank
+        // the whole graph. Drop any edge that references a non-existent node.
+        const validEdges = graph.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+        return [
+          ...graph.nodes.map((n) => ({
+            data: { id: n.id, label: n.label, role: n.role, depth: n.depth, token_budget: n.token_budget, purpose: n.purpose },
+          })),
+          ...validEdges.map((e) => ({
+            data: { id: e.id, source: e.source, target: e.target, type: e.type, label: e.label },
+          })),
+        ];
+      })(),
       wheelSensitivity: 0.3,
     });
 

@@ -28,6 +28,18 @@ CONTROL_OS_DIR = Path(__file__).resolve().parent.parent / "control-os" / "dist"
 CSRF_TOKEN = secrets.token_hex(32)
 
 
+def _ref_to_node(ref: str, node_ids: set) -> str | None:
+    """Map a connection string ('../web-app/', 'deploy/', 'src/routes/') to an
+    existing graph node id, or None if it isn't a smart folder in the graph.
+    Cytoscape rejects edges whose endpoints aren't nodes, so unresolved refs
+    must be dropped — not emitted as dangling edges."""
+    ref = (ref or "").strip().rstrip("/")
+    if ref in node_ids:
+        return ref
+    base = ref.split("/")[-1]
+    return base if base in node_ids else None
+
+
 def _within(child: Path, parent: Path) -> bool:
     """True only if child is inside parent. Uses relative_to instead of string
     prefix matching, which is bypassable by a sibling sharing the name prefix
@@ -369,17 +381,31 @@ class Handler(BaseHTTPRequestHandler):
                 "efficiency": efficiency,
                 "token_usage_pct": token_pct,
             })
+        node_ids = {n["id"] for n in nodes}
+        seen: set[str] = set()
+
+        def add_edge(src_ref: str, tgt_ref: str, etype: str, label: str):
+            s = _ref_to_node(src_ref, node_ids)
+            t = _ref_to_node(tgt_ref, node_ids)
+            if not s or not t or s == t:
+                return
+            eid = f"{s}->{t}:{etype}"
+            if eid in seen:
+                return
+            seen.add(eid)
+            edges.append({"id": eid, "source": s, "target": t, "type": etype, "label": label})
+
         for f in folders:
             c = f.connections or {}
             source = f.relative_path
             if c.get("parent"):
-                edges.append({"id": f"{c['parent']}->{source}", "source": c["parent"], "target": source, "type": "parent", "label": "parent"})
+                add_edge(c["parent"], source, "parent", "parent")
             for child in c.get("children") or []:
-                edges.append({"id": f"{source}->{child}", "source": source, "target": child, "type": "child", "label": "child"})
+                add_edge(source, child, "child", "child")
             for target in c.get("feeds_into") or []:
-                edges.append({"id": f"{source}->{target}", "source": source, "target": target, "type": "feeds_into", "label": "feeds into"})
+                add_edge(source, target, "feeds_into", "feeds into")
             for target in c.get("receives_from") or []:
-                edges.append({"id": f"{target}->{source}", "source": target, "target": source, "type": "receives_from", "label": "receives from"})
+                add_edge(target, source, "receives_from", "receives from")
         return {"nodes": nodes, "edges": edges}
     def _stats_data(self) -> dict:
         root = self.server.root
