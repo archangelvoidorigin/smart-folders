@@ -19,13 +19,24 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from smartfolders.core import scan
+from smartfolders.core import scan, invalidate_cache
 from smartfolders.ops import validate_folder, audit_all, print_audit, build_map, render_tree, render_stats, render_connections
 from smartfolders.schema import validate_settings
 
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 CONTROL_OS_DIR = Path(__file__).resolve().parent.parent / "control-os" / "dist"
 CSRF_TOKEN = secrets.token_hex(32)
+
+
+def _within(child: Path, parent: Path) -> bool:
+    """True only if child is inside parent. Uses relative_to instead of string
+    prefix matching, which is bypassable by a sibling sharing the name prefix
+    (e.g. /proj/app vs /proj/app-secrets)."""
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -38,7 +49,7 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(200, "application/json", json.dumps(self._folder_data()).encode())
         elif path == "/api/graph":
             self._respond(200, "application/json", json.dumps(self._graph_data()).encode())
-        el        if path == "/api/stats":
+        elif path == "/api/stats":
             self._respond(200, "application/json", json.dumps(self._stats_data()).encode())
         elif path.startswith("/api/search/"):
             term = path[len("/api/search/"):]
@@ -76,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         abs_folder = (self.server.root / folder_path).resolve()
-        if not str(abs_folder).startswith(str(self.server.root.resolve())) or not abs_folder.is_dir():
+        if not _within(abs_folder, self.server.root) or not abs_folder.is_dir():
             self._respond(404, "application/json", json.dumps({"error": "Folder not found"}).encode())
             return
 
@@ -100,7 +111,7 @@ class Handler(BaseHTTPRequestHandler):
                 laws_dir = abs_folder / "laws"
                 laws_dir.mkdir(parents=True, exist_ok=True)
                 target = laws_dir / sub
-                if not str(target.resolve()).startswith(str(laws_dir.resolve())):
+                if not _within(target, laws_dir):
                     self._respond(403, "application/json", json.dumps({"error": "Forbidden"}).encode())
                     return
             else:
@@ -123,8 +134,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/folders":
             self._handle_create_folder()
-        elif path.startswith("/api/folders/") and path.endswith("/move-to-limbo"):
-            self._handle_move_to_limbo(path)
+        elif path.startswith("/api/folders/") and path.endswith("/delete"):
+            self._handle_delete(path)
         elif path == "/api/validate-settings":
             self._handle_validate_settings()
         else:
@@ -200,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
 
         root = self.server.root
         abs_folder = (root / folder_path_str).resolve()
-        if not str(abs_folder).startswith(str(root.resolve())) or not abs_folder.exists():
+        if not _within(abs_folder, root) or not abs_folder.exists():
             self._respond(404, "text/plain", b"Folder not found")
             return
 
@@ -222,7 +233,7 @@ class Handler(BaseHTTPRequestHandler):
             laws_dir = abs_folder / "laws"
             if sub:
                 law_file = laws_dir / sub
-                if not str(law_file.resolve()).startswith(str(laws_dir.resolve())):
+                if not _within(law_file, laws_dir):
                     self._respond(403, "text/plain", b"Forbidden")
                     return
                 self._serve_raw_file(law_file)
@@ -260,41 +271,40 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._respond(500, "application/json", json.dumps({"error": str(e)}).encode())
 
-    def _handle_move_to_limbo(self, path: str):
+    def _handle_delete(self, path: str):
+        """Soft-delete: move the folder to a .trash/ directory inside the root.
+        Never an rm — the folder stays recoverable. .trash/ is excluded from scans."""
         rest = path[len("/api/folders/"):]
-        folder_path_str = rest.replace("/move-to-limbo", "").rstrip("/")
+        folder_path_str = rest.replace("/delete", "").rstrip("/")
         root = self.server.root
         abs_folder = (root / folder_path_str).resolve()
-        if not str(abs_folder).startswith(str(root.resolve())) or not abs_folder.exists():
+        if not _within(abs_folder, root) or not abs_folder.exists():
             self._respond(404, "application/json", json.dumps({"error": "Folder not found"}).encode())
             return
 
-        if abs_folder == root:
-            self._respond(400, "application/json", json.dumps({"error": "Cannot move root"}).encode())
+        if abs_folder == root.resolve():
+            self._respond(400, "application/json", json.dumps({"error": "Cannot delete root"}).encode())
             return
 
-        limbo = self._get_limbo_dir()
+        trash = self._get_trash_dir()
         try:
             import shutil
-            dest = limbo / folder_path_str
+            dest = trash / folder_path_str
             dest.parent.mkdir(parents=True, exist_ok=True)
             if dest.exists():
                 import time
-                dest = limbo / f"{folder_path_str}_{int(time.time())}"
+                dest = trash / f"{folder_path_str}_{int(time.time())}"
             shutil.move(str(abs_folder), str(dest))
-            self._respond(200, "application/json", json.dumps({"ok": True, "moved_to": str(dest)}).encode())
+            invalidate_cache(root)
+            self._respond(200, "application/json", json.dumps({"ok": True, "trashed_to": str(dest)}).encode())
         except Exception as e:
             self._respond(500, "application/json", json.dumps({"error": str(e)}).encode())
 
-    def _get_limbo_dir(self) -> Path:
-        root = self.server.root
-        for candidate in (root / ".." / "06_LIMBO", root.parent / "06_LIMBO", root.parent.parent / "06_LIMBO"):
-            resolved = candidate.resolve()
-            if resolved.is_dir():
-                return resolved
-        limbo = root.parent / "06_LIMBO"
-        limbo.mkdir(parents=True, exist_ok=True)
-        return limbo
+    def _get_trash_dir(self) -> Path:
+        """.trash/ lives inside the served root so deletes never escape it."""
+        trash = self.server.root / ".trash"
+        trash.mkdir(parents=True, exist_ok=True)
+        return trash
 
     def _serve_raw_file(self, file_path: Path):
         if file_path.is_file():
@@ -342,9 +352,9 @@ class Handler(BaseHTTPRequestHandler):
         edges = []
         for f in folders:
             # Compute token usage percentage for heatmap layer
-+            token_pct = round((f.token_budget / max_budget) * 100, 2) if max_budget else 0
-+            # Retrieve efficiency from audit map (fallback to 0)
-+            efficiency = audit_map.get(str(f.path), 0)
+            token_pct = round((f.token_budget / max_budget) * 100, 2) if max_budget else 0
+            # Retrieve efficiency from audit map (fallback to 0)
+            efficiency = audit_map.get(str(f.path), 0)
             nodes.append({
                 "id": f.relative_path,
                 "label": f.name,
@@ -356,8 +366,8 @@ class Handler(BaseHTTPRequestHandler):
                 "has_smartignore": f.has_ignore,
                 "has_laws": f.has_laws,
                 "purpose": f.purpose or "",
-+                "efficiency": efficiency,
-+                "token_usage_pct": token_pct,
+                "efficiency": efficiency,
+                "token_usage_pct": token_pct,
             })
         for f in folders:
             c = f.connections or {}
@@ -412,11 +422,11 @@ class Handler(BaseHTTPRequestHandler):
             if not base.is_dir():
                 continue
             candidate = (base / cleaned).resolve()
-            if str(candidate).startswith(str(base.resolve())) and candidate.is_file():
+            if _within(candidate, base) and candidate.is_file():
                 return candidate
         if CONTROL_OS_DIR.is_dir():
             candidate = (CONTROL_OS_DIR / cleaned).resolve()
-            if str(candidate).startswith(str(CONTROL_OS_DIR.resolve())) and not candidate.exists() and not candidate.suffix:
+            if _within(candidate, CONTROL_OS_DIR) and not candidate.exists() and not candidate.suffix:
                 index = CONTROL_OS_DIR / "index.html"
                 if index.is_file():
                     return index
@@ -435,21 +445,35 @@ class Handler(BaseHTTPRequestHandler):
             ".md": "text/markdown",
         }.get(ext, "application/octet-stream")
 
+    def _allowed_origin(self) -> str | None:
+        """Reflect the request Origin only when it is a localhost origin. Never
+        emit a wildcard: ACAO:* would let any website read folder data and file
+        contents cross-origin (GET endpoints carry no CSRF). Same-origin requests
+        need no ACAO; control-os dev (localhost:5173) is still permitted."""
+        origin = self.headers.get("Origin", "")
+        if origin and urlparse(origin).hostname in ("127.0.0.1", "localhost"):
+            return origin
+        return None
+
+    def _cors_headers(self):
+        allowed = self._allowed_origin()
+        if allowed:
+            self.send_header("Access-Control-Allow-Origin", allowed)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+
     def _respond(self, code, ctype, body):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+        self._cors_headers()
         self.send_header("Content-Length", len(body))
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+        self._cors_headers()
         self.send_header("Access-Control-Max-Age", "86400")
         self.end_headers()
 

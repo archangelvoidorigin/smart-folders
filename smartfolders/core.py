@@ -47,7 +47,12 @@ def scan(root: Path, *, use_cache: bool = True) -> list[Folder]:
         if cached_mtime == mtime:
             return cached_folders
 
-    smart_mds = sorted(root.rglob("smart-folder.md"))
+    # Skip anything under a hidden directory (.trash/, .git/, .claude/, …) so
+    # soft-deleted folders don't reappear as live smart folders.
+    smart_mds = [
+        p for p in sorted(root.rglob("smart-folder.md"))
+        if not any(part.startswith(".") for part in p.relative_to(root).parts[:-1])
+    ]
     folders: list[Folder] = []
 
     for sm_path in smart_mds:

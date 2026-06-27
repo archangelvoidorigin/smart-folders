@@ -17,3 +17,4 @@ node_modules/
 .vscode/
 *.log
 audit-report.json
+*.tsbuildinfo

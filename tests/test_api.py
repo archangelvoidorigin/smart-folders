@@ -1,4 +1,5 @@
 import json
+import shutil
 import threading
 import time
 import urllib.request
@@ -19,9 +20,13 @@ EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 
 
 @pytest.fixture(scope="module")
-def server():
+def server(tmp_path_factory):
+    # Operate on a throwaway copy — mutation tests must never write to the
+    # version-controlled examples/ fixtures.
+    root = tmp_path_factory.mktemp("examples_copy") / "examples"
+    shutil.copytree(EXAMPLES, root)
     server = HTTPServer(("127.0.0.1", PORT), Handler)
-    server.root = EXAMPLES
+    server.root = root
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
     time.sleep(0.2)
@@ -153,9 +158,21 @@ class TestMutationEndpoints:
                             body=json.dumps(incomplete).encode())
         assert status == 422
 
-    def test_move_to_limbo_rejects_root(self, server):
-        status, data = _req("POST", "/api/folders/./move-to-limbo")
+    def test_delete_rejects_root(self, server):
+        status, data = _req("POST", "/api/folders/./delete")
         assert status != 200
+
+    def test_delete_moves_to_trash_and_hides(self, server):
+        # api-service exists before delete...
+        assert "api-service" in {f["name"] for f in _get("/api/folders")["folders"]}
+        status, data = _req("POST", "/api/folders/api-service/delete")
+        assert status == 200
+        assert data["ok"] is True
+        assert "/.trash/" in data["trashed_to"]
+        # ...and is gone from the live listing (trash is excluded from scans)
+        assert "api-service" not in {f["name"] for f in _get("/api/folders")["folders"]}
+        # the folder is recoverable on disk, not rm'd
+        assert (server.root / ".trash" / "api-service" / "smart-folder.md").exists()
 
     def test_validate_settings_endpoint(self, server):
         status, data = _req("POST", "/api/validate-settings",

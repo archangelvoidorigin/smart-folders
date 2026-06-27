@@ -234,6 +234,22 @@ Opens at `http://localhost:8080`. You see:
 
 The dashboard is not just data. It is the visual rhythm of your system — what you see pulse and breathe is what the agent knows. Every component drawn from the same source.
 
+### Two flavors — same API, your choice
+
+Zero dependencies, always. The Control OS is an optional power-up — one command, never required. Don't want a build step? You never touch one.
+
+| | **Lite** (default) | **Control OS** (opt-in) |
+|---|---|---|
+| Run | `make dashboard` | `make control-os` |
+| Dependencies | none — Python stdlib | Vite + Cytoscape (`npm install`, once) |
+| Frontend | vanilla HTML/CSS/JS | React + Vite |
+| Has | tree, stats, health rings, validate/audit/map, in-browser editing | everything in Lite **plus** the interactive connection graph, richer editors, and a creation wizard |
+| Build step | never | one `npm run build` (wrapped by `make control-os`) |
+
+Both talk to the same `dashboard.py` REST API. The Lite tier is complete on its own — the Control OS only *adds* the graph-driven visuals. When a `control-os/dist/` build exists, `dashboard.py` serves it automatically; otherwise you get Lite.
+
+Editing from the browser is guarded: writes require a same-origin request plus a per-session CSRF token, and every write is contained to the project root. Deleting a folder is a soft-delete — it moves to `.trash/` inside the project and stays recoverable; nothing is ever `rm`'d.
+
 ---
 
 ## Philosophy — Shen (神) & The Three Treasures

@@ -129,14 +129,22 @@ All scripts are thin wrappers around the `smartfolders/` package.
 
 ## Dashboard Architecture
 
-`dashboard.py` uses Python's stdlib `http.server`. No Flask, no FastAPI, no npm.
+`dashboard.py` is a stdlib `http.server` REST API. No Flask, no FastAPI. It serves two
+frontends from the same API:
 
-Endpoints:
-- `GET /` — serves the dashboard HTML (embedded single-page app)
-- `GET /api/data` — returns folder tree as JSON (from `core.scan()`, cached)
-- `GET /api/validate|audit|map` — runs `ops.*` directly (no subprocess)
+- **Lite (default, zero-dep):** `dashboard/index.html` — vanilla HTML/CSS/JS, no build step.
+  Served at `/` when no Control OS build is present. `make dashboard`.
+- **Control OS (opt-in):** `control-os/dist/` — React + Vite + Cytoscape graph, editors,
+  wizard. Built with `make control-os`; auto-detected and served at `/` when `control-os/dist/`
+  exists. Requires `npm install` once — never in the default path.
 
-The dashboard is a single-page app with vanilla JS. No React, no build step. The frontend is embedded HTML/CSS/JS.
+Read endpoints (no CSRF): `GET /api/folders`, `/api/folders/:path`, `/api/folders/:path/{settings,smart-folder,smartignore,laws[/:file]}`, `/api/graph`, `/api/stats`, `/api/search/:term`, `/api/csrf-token`, `/api/{validate,audit,map}` (run `ops.*` directly, no subprocess).
+
+Write endpoints (guarded): `PUT /api/folders/:path/{settings,smart-folder,smartignore,laws/:file}`, `POST /api/folders`, `POST /api/folders/:path/delete` (soft-delete — moves the folder to `.trash/` inside the root, never `rm`; recoverable; excluded from scans).
+
+**Security guard** (`_guard`, on every PUT/POST): Origin/Host must be localhost, a per-process
+CSRF token is required, and write targets are contained to the root via `_within()` (a
+`relative_to` check, not string-prefix). CORS reflects only localhost origins — never `*`.
 
 ---
 

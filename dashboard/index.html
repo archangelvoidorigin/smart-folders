@@ -502,8 +502,8 @@ a.skip-link:focus { top:0; }
 .btn-save:disabled { opacity:.4; cursor:not-allowed; }
 .btn-discard { background:var(--surface); color:var(--text2); border-color:var(--border); }
 .btn-discard:hover { background:var(--surface2); color:var(--text); }
-.btn-limbo { background:rgba(248,113,113,.12); color:#F87171; border-color:rgba(248,113,113,.2); }
-.btn-limbo:hover { background:rgba(248,113,113,.2); }
+.btn-delete { background:rgba(248,113,113,.12); color:#F87171; border-color:rgba(248,113,113,.2); }
+.btn-delete:hover { background:rgba(248,113,113,.2); }
 .editor-status { font-size:11px; color:var(--text3); margin-left:auto; }
 .editor-status.ok { color:var(--green); }
 .editor-status.err { color:var(--red); }
@@ -673,7 +673,7 @@ a.skip-link:focus { top:0; }
         <div class="editor-actions">
           <button class="btn-save" id="btn-editor-save" disabled onclick="saveEditor()">Save</button>
           <button class="btn-discard" onclick="discardEdits()">Discard</button>
-          <button class="btn-limbo" id="btn-move-limbo" onclick="moveToLimbo()">Move to Limbo</button>
+          <button class="btn-delete" id="btn-delete" onclick="deleteFolder()">Delete</button>
           <button class="btn-validate" id="btn-validate-editor" style="display:none;padding:6px 16px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;font-family:var(--font);border:1px solid transparent;background:rgba(59,130,246,.12);color:#60A5FA;border-color:rgba(59,130,246,.2);" onclick="validateSettings()">Validate</button>
           <span class="editor-status" id="editor-status"></span>
         </div>
@@ -998,11 +998,11 @@ async function loadEditor(folderIdx) {
   const wrap = document.getElementById('editor-wrap');
   const tabs = document.getElementById('editor-tabs');
   const files = document.getElementById('editor-files');
-  const limboBtn = document.getElementById('btn-move-limbo');
+  const deleteBtn = document.getElementById('btn-delete');
   document.getElementById('editor-panel').style.display = '';
 
   const basePath = f.path;
-  limboBtn.style.display = f.path === '.' ? 'none' : '';
+  deleteBtn.style.display = f.path === '.' ? 'none' : '';
 
   editorState = {
     folderIdx: folderIdx,
@@ -1214,21 +1214,21 @@ function discardEdits() {
   editorStatus('');
 }
 
-async function moveToLimbo() {
+async function deleteFolder() {
   const f = data.folders[editorState.folderIdx];
-  if (!confirm('Move "' + f.name + '" to 06_LIMBO/? This cannot be undone via UI.')) return;
+  if (!confirm('Delete "' + f.name + '"? It will be moved to .trash/ inside the project and can be recovered manually.')) return;
 
   try {
-    const res = await fetch('/api/folders/' + editorState.path + '/move-to-limbo', {
+    const res = await fetch('/api/folders/' + editorState.path + '/delete', {
       method: 'POST',
       headers: { 'X-CSRF-Token': csrfToken },
     });
     const result = await res.json();
     if (result.ok) {
-      editorStatus('Moved to Limbo', 'ok');
+      editorStatus('Deleted (moved to .trash/)', 'ok');
       load();
     } else {
-      editorStatus(result.error || 'Move failed', 'err');
+      editorStatus(result.error || 'Delete failed', 'err');
     }
   } catch(e) {
     editorStatus('Error: ' + e.message, 'err');

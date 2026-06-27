@@ -20,7 +20,7 @@ an optional power-up — one command, never required."*
 2. **Lite tier must be complete, not a demo.** Anything with a CLI equivalent (`validate`,
    `audit`, `map`, view, navigate) works in Lite. Only genuinely-new visual/edit affordances
    (Cytoscape graph, in-browser editing, creation wizard) may be Control-OS-only.
-3. **No deletion, ever.** `DELETE`/remove = move to `06_LIMBO/`. No `rm`.
+3. **No deletion, ever.** Delete = soft-delete to `.trash/` inside the root. No `rm`. Recoverable.
 4. **One repo, one version, one CHANGELOG.** `control-os/` is a subdirectory, not a fork.
 
 ---
@@ -127,7 +127,7 @@ Write endpoints (gated — see security; ship in Phase C):
 | PUT | `/api/folders/:path/smartignore` | update .smartignore |
 | PUT/POST | `/api/folders/:path/laws/:file` | update/create law file |
 | POST | `/api/folders` | create folder (calls templates.py) |
-| POST | `/api/folders/:path/move-to-limbo` | move to `06_LIMBO/` (never delete) |
+| POST | `/api/folders/:path/delete` | soft-delete to `.trash/` inside root (never `rm`) |
 | POST | `/api/{validate,audit,map}` | run via `ops.*` import (no subprocess) |
 
 ### `/api/graph` schema
@@ -164,7 +164,7 @@ DNS-rebinding/CSRF. One `_guard()` runs on every `PUT/POST/DELETE`:
 2. CSRF token: server prints it on start, injects into the page, requires it as a request
    header on mutations.
 3. Path containment: resolve target, assert it's inside the configured root, reject `../`.
-4. No `rm` — `move-to-limbo` only.
+4. No `rm` — soft-delete to `.trash/` only.
 
 This gates Phase C. Do not build editors before the guard exists.
 
